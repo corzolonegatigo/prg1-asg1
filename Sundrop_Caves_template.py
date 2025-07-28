@@ -124,6 +124,7 @@ def initialize_game(game_map, fog, player):
     player['day'] = 0
     player['steps'] = 0
     player['turns'] = TURNS_PER_DAY
+    player['save_name'] = 'new'
 
     clear_fog(fog, player)
     
@@ -175,6 +176,14 @@ def save_game(game_map, fog, player):
         os.mkdir('saves')
 
     saves_list = os.listdir(save_folder)
+
+    
+    if player['save_name'] not in saves_list:
+        os.mkdir("save_#" + str(len(saves_list+1)))
+        particular_save_folder = os.path.join(save_folder, "save_#" + str(len(saves_list+1)))
+    else:
+        particular_save_folder = os.path.join(save_folder, player['save_name'])
+    
     # save map
     # save fog
     # save player
@@ -230,7 +239,5 @@ print("-----------------------------------------------------------")
 
 
 
-#testing loop
-initialize_game(game_map, fog, player)
-    
+
     
