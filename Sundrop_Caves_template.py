@@ -1,6 +1,8 @@
 from random import randint
 import os
 import time
+import json
+from copy import deepcopy
 
 player = {}
 game_map = []
@@ -111,8 +113,6 @@ def initialize_game(game_map, fog, player):
             fog[i].append(0)
 
     
-    # TODO: initialize player
-    #   You will probably add other entries into the player dictionary
     player['name'] = input("Greetings, miner! What is your name? ")
     player['bp_size'] = 10
     player['x'] = 0
@@ -126,7 +126,7 @@ def initialize_game(game_map, fog, player):
     player['turns'] = TURNS_PER_DAY
     player['save_name'] = 'new'
 
-    clear_fog(fog, player)
+    return game_map, fog, player
     
 # This function draws the entire map, covered by the fog
 def draw_map(game_map, fog, player):
@@ -171,30 +171,72 @@ def show_information(player):
 # This function saves the game
 def save_game(game_map, fog, player):
 
+    # checks if a save folder exists. if not, creates folder
     save_folder = "saves"
     if not os.path.exists(save_folder):
         os.mkdir('saves')
 
+    # get the current saves available 
     saves_list = os.listdir(save_folder)
 
     
     if player['save_name'] not in saves_list:
-        os.mkdir("save_#" + str(len(saves_list+1)))
-        particular_save_folder = os.path.join(save_folder, "save_#" + str(len(saves_list+1)))
+        save_no = "save_#" + str(len(saves_list+1))
+        player['save_name'] = save_no
+        particular_save_file = os.path.join(save_folder, save_no + '.json')
     else:
-        particular_save_folder = os.path.join(save_folder, player['save_name'])
+        particular_save_file = os.path.join(save_folder, player['save_name'] + '.json')
+
+    # add fog and map to dictnary written to save file
+    player['fog'] = fog
+    player['map'] = game_map
+
+    # open file and write to save file
+    save_file = open(particular_save_file, 'w')
+    player_info_json = json.dumps(player)
+    save_file.write(player_info_json)
+
+    save_file.close()
     
-    # save map
-    # save fog
-    # save player
     return
         
 # This function loads the game
-def load_game(game_map, fog, player):
-    # load map
-    # load fog
-    # load player
-    return
+def load_game(game_map, fog, player):   
+    save_folder = 'saves'
+    if not os.path.exists(save_folder) or (os.listdir(save_folder) == []):
+        print("There are no available saves for you to load!")
+        if input("Do you want to start a new game? [y/n] ") == 'y':
+            return initialize_game()
+
+    else:
+        # show available saves and ask usr for which save to load
+        saves_list = os.listdir(save_folder)
+        print("----- Saves List -----")
+        for save_idx in range(len(saves_list)):
+            print(f" {save_idx+1}. {saves_list[save_idx][:5]}")
+
+        save_to_load = -1
+        while -1 < save_to_load < len(save_folder):
+            save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
+        
+        # load save info
+        save_path = os.path.join(save_folder, saves_list[save_to_load] + '.json')
+        save_file = open(save_path, 'r')
+        data_raw = json.loads(save_file)
+        
+        # write the map and fog from save to the respective vars
+        game_map = data_raw['map']
+        fog = data_raw['fog']
+       
+        # creates a deepcopy of the dictionary read from the .json file
+        player = deepcopy(data_raw)
+
+        # remove map and fog from player
+        del player['map']
+        del player['fog']
+
+        return game_map, fog, player
+    
 
 
 def show_main_menu():
