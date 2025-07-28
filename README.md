@@ -1,2 +1,2 @@
 # asg1
-submission for ngee an p
+PRG Assignment 1 submisison for Ngee Ann Polytechnic | Lee Dong Ze, Zac, IM02

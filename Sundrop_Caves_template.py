@@ -235,8 +235,9 @@ def load_game():
         for save_idx in range(len(saves_list)):
             print(f" {save_idx+1}. {saves_list[save_idx][:5]}")
 
-        save_to_load = -1
+        save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
         while -1 < save_to_load < len(save_folder):
+            print("\nThats not a valid option! Please try again...")
             save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
         
         # load save info
@@ -254,8 +255,6 @@ def load_game():
 
         MAP_WIDTH = len(game_map[0])
         MAP_HEIGHT = len(game_map)
-
-
        
         # creates a deepcopy of the dictionary read from the .json file
         player = deepcopy(data_raw)
@@ -302,6 +301,15 @@ def show_town_menu(player):
     print("Sa(V)e game")
     print("(Q)uit to main menu")
     print("------------------------")
+    
+    options = ["B", "I", "M", "E", "V", "Q"]
+    choice = input("Your choice? ")
+    if choice not in options:
+        print("\nThats not a valid option! Please try again...")
+        choice = input("Your choice? ")
+
+
+
             
 
 #--------------------------- MAIN GAME ---------------------------
