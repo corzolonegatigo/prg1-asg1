@@ -125,6 +125,9 @@ def initialize_game(game_map, fog, player):
     player['steps'] = 0
     player['turns'] = TURNS_PER_DAY
     player['save_name'] = 'new'
+    player['portal_position'] = "no portal placed right now."
+    player['pickaxe_lvl'] = 1
+    player['current_load'] = 0
 
     return game_map, fog, player
     
@@ -166,7 +169,24 @@ def draw_view(game_map, fog, player):
 # This function shows the information for the player
 
 def show_information(player):
-    return
+    print()
+
+    print("----- Player Information -----")
+    print("Name:", player['name'])
+    print("Portal position:", player['portal_position'])
+    print(f"Pickaxe level: {player['pickaxe_lvl']} ({minerals[player['pickaxe_lvl']]})") # using the mineral ranking as the pickaxe material ranking for now
+    print("Gold:", player['gold'])
+    print("Silver:", player['silver'])
+    print("Bronze:", player['bronze'])
+    print("------------------------------")
+
+    print(f"Load: {player['current_load']} / {player['bp_size']}")
+    print("------------------------------")
+
+    print("GP:", player['GP'])
+    print("Steps taken:", player['steps'])
+    print("------------------------------")
+
 
 # This function saves the game
 def save_game(game_map, fog, player):
@@ -201,7 +221,7 @@ def save_game(game_map, fog, player):
     return
         
 # This function loads the game
-def load_game(game_map, fog, player):   
+def load_game():   
     save_folder = 'saves'
     if not os.path.exists(save_folder) or (os.listdir(save_folder) == []):
         print("There are no available saves for you to load!")
@@ -227,6 +247,15 @@ def load_game(game_map, fog, player):
         # write the map and fog from save to the respective vars
         game_map = data_raw['map']
         fog = data_raw['fog']
+
+        # gets map width + map height
+        global MAP_WIDTH
+        global MAP_HEIGHT
+
+        MAP_WIDTH = len(game_map[0])
+        MAP_HEIGHT = len(game_map)
+
+
        
         # creates a deepcopy of the dictionary read from the .json file
         player = deepcopy(data_raw)
@@ -254,9 +283,17 @@ def show_main_menu():
         choice = input("Your choice?").upper()
     if choice == 'N':
         return initialize_game()
-def show_town_menu():
-    print()
-    # TODO: Show Day
+    elif choice == 'L':
+        return load_game()
+    
+    else:
+        print("buh bye")
+        return None
+    
+    
+def show_town_menu(player):
+    print(f"Day {player['day']}")
+    # TODO: Show Day    
     print("----- Sundrop Town -----")
     print("(B)uy stuff")
     print("See Player (I)nformation")
