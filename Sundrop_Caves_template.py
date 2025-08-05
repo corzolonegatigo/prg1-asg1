@@ -24,8 +24,18 @@ prices['copper'] = (1, 3)
 prices['silver'] = (5, 8)
 prices['gold'] = (10, 18)
 
-# This function loads a map structure (a nested list) from a file
-# It also updates MAP_WIDTH and MAP_HEIGHT
+def validate_usr_input(prompt: str, valid_options): # gets str 'prompt' and the list 'valid_options'. ensures that the usr input is valid. automatically .upper usr input
+    usr_choice = ""
+    while True:
+        usr_choice = input(prompt).upper()
+        if usr_choice not in valid_options:
+            print("That's not possible! Please try something else")
+        
+        else:
+            return usr_choice
+    
+
+
 
 def arr_of_str_to_2darr(list: list): 
     out = []
@@ -54,6 +64,8 @@ def wrap_map(map: list): # takes a 1d/2d array as input. if 1d, each element is 
 
     print(sides_vertical)
 
+# This function loads a map structure (a nested list) from a file
+# It also updates MAP_WIDTH and MAP_HEIGHT
 
 def load_map(filename, map_struct):
     map_file = open(filename, 'r')
@@ -102,34 +114,7 @@ def clear_fog(map, fog, player):
     
     return fog
 
-def initialize_game(game_map, fog, player):
-    # initialize map
-    game_map = load_map("level1.txt", game_map)
-    
-    # TODO: initialize fog
-    for i in range(MAP_HEIGHT):
-        fog.append([])
-        for j in range(MAP_WIDTH):
-            fog[i].append(0)
 
-    
-    player['name'] = input("Greetings, miner! What is your name? ")
-    player['bp_size'] = 10
-    player['x'] = 0
-    player['y'] = 0
-    player['copper'] = 0
-    player['silver'] = 0
-    player['gold'] = 0
-    player['GP'] = 0
-    player['day'] = 0
-    player['steps'] = 0
-    player['turns'] = TURNS_PER_DAY
-    player['save_name'] = 'new'
-    player['portal_position'] = "no portal placed right now."
-    player['pickaxe_lvl'] = 1
-    player['current_load'] = 0
-
-    return game_map, fog, player
     
 # This function draws the entire map, covered by the fog
 def draw_map(game_map, fog, player):
@@ -164,8 +149,108 @@ def draw_view(game_map, fog, player):
     view[1][1] = 'M'
     wrap_map(view)
 
-    return
+def mining(game_map, player): # the enter mine function looks too long if i put this code in there without a function
+    tile = game_map[player['y']][player['x']]
+    if tile in mineral_names.keys():
+        mineral_mining = mineral_names[tile]
 
+        # get index of mineral from minerals list
+        # if index of mineral > pickaxe lvl, cannot mine that mineral
+        # pickaxe levels range from 0 to 2, same as index in minerals list
+
+        mineral_idx = minerals.index(mineral_mining)
+        if mineral_idx > player['pickaxe_lvl']:
+            print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe is not strong enough to mine this {mineral_mining}!\n")
+        
+        else:
+            if mineral_mining == 'copper':
+                mined_amt = randint(1,5)
+            elif mineral_mining == 'silver':
+                mined_amt = randint(1,3)
+            else:
+                mined_amt = randint(1,2)
+
+            print(f"You mined up {mined_amt} piece(s) of {mineral_mining}!")
+            if (player['current_load'] + mined_amt) > player['bp_size']:
+                mined_amt = player['bp_size'] - player['current_load']
+                print(f"...but you only can pick up {mined_amt} more pieces!")
+                player['current_load'] += mined_amt
+                player[tile] += mined_amt
+
+            else:
+                player['current_load'] += mined_amt
+                player[tile] += mined_amt
+
+            game_map[player['y']][player['x']] = ' '
+
+    return game_map, player
+def enter_mine(game_map, fog, player): 
+
+    if type(player['portal_position']) == tuple: 
+        go_to_portal = validate_usr_input("Do you want to go to your portal? [Y/N]", ['Y', 'N'])
+        if go_to_portal: # sets player x, y to portal position
+            player['x'] = player['portal_position'][0]
+            player['y'] = player['portal_position'][1]
+        else:
+            player['x'] = 0
+            player['y'] = 0
+
+    while player['turn'] < TURNS_PER_DAY:
+        print("------------------------")
+        print(f"Day {player['turn']} / {TURNS_PER_DAY}      Load: {player['current_load']} / {player['bp_size']}      Steps: {player['steps']}")
+        
+
+        draw_view(game_map, fog, player) # draws the viewport
+        area = get_surrounding(player['x'], player['y']) # get the 3x3 surroundings
+        options = ["W", "A", "S", "D", 'M', 'I', 'P', 'Q']
+
+        # see if movement option is valid
+        if '#' in area:
+
+            if area[0][1] == "#":
+                options.remove('W')
+            elif area[2][1] == '#':
+                options.remove('S')
+
+            if area[1][0] == '#':
+                options.remove('A')
+            elif area[1][2] == '#':
+                options.remove('D')
+
+        print("Use the W, A, S, D keys to move around.")
+        print("Additionally, (M)ap, (I)nformation, (P)ortal, (Q)uit to main menu are options.")
+        choice = validate_usr_input("Which way do you want to go? ", options)
+
+        # change player pos based on input
+        if choice == 'W':
+            player['y'] -= 1
+        elif choice == 'A':
+            player['x'] -= 1
+        elif choice == 'S':
+            player['y'] += 1
+        elif choice == 'D':
+            player['x'] += 1
+        elif choice == 'M':
+            draw_map(game_map, fog, player)
+        elif choice == 'I':
+            show_information(player)
+        elif choice == 'P':
+            player['portal_position'] = (player['x'], player['y'])
+
+            print(f"You place a portal at (x:{player['x']}, y:{player['y']})!")
+            go_back = validate_usr_input("Do you want to go back? [Y/N]", ['Y','N'])
+            if go_back == True:
+                return game_map, fog, player
+        else:
+            save_game(game_map, fog, player)
+
+
+        # mining code
+        game_map, player = mining(game_map, player)
+
+
+        player['turn'] += 1
+    return game_map, fog, player # runs after turn limit is reached
 # This function shows the information for the player
 
 def show_information(player):
@@ -174,7 +259,7 @@ def show_information(player):
     print("----- Player Information -----")
     print("Name:", player['name'])
     print("Portal position:", player['portal_position'])
-    print(f"Pickaxe level: {player['pickaxe_lvl']} ({minerals[player['pickaxe_lvl']]})") # using the mineral ranking as the pickaxe material ranking for now
+    print(f"Pickaxe level: {player['pickaxe_lvl']} ({minerals[player['pickaxe_lvl']]} pickaxe)") # using the mineral ranking as the pickaxe material ranking for now
     print("Gold:", player['gold'])
     print("Silver:", player['silver'])
     print("Bronze:", player['bronze'])
@@ -187,6 +272,34 @@ def show_information(player):
     print("Steps taken:", player['steps'])
     print("------------------------------")
 
+def initialize_game(game_map, fog, player):
+    # initialize map
+    game_map = load_map("level1.txt", game_map)
+    
+    # TODO: initialize fog
+    for i in range(MAP_HEIGHT):
+        fog.append([])
+        for j in range(MAP_WIDTH):
+            fog[i].append(0)
+
+    
+    player['name'] = input("Greetings, miner! What is your name? ")
+    player['bp_size'] = 10
+    player['x'] = 0
+    player['y'] = 0
+    player['copper'] = 0
+    player['silver'] = 0
+    player['gold'] = 0
+    player['GP'] = 0
+    player['day'] = 0
+    player['steps'] = 0
+    player['turns'] = 0
+    player['save_name'] = 'new'
+    player['portal_position'] = "no portal placed right now."
+    player['pickaxe_lvl'] = 0
+    player['current_load'] = 0
+
+    return game_map, fog, player
 
 # This function saves the game
 def save_game(game_map, fog, player):
@@ -236,7 +349,7 @@ def load_game():
             print(f" {save_idx+1}. {saves_list[save_idx][:5]}")
 
         save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
-        while -1 < save_to_load < len(save_folder):
+        while -1 < save_to_load < len(save_folder): # since this gets a number, outside of the use case of the above valid_usr_input function
             print("\nThats not a valid option! Please try again...")
             save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
         
@@ -266,7 +379,6 @@ def load_game():
         return game_map, fog, player
     
 
-
 def show_main_menu():
     print()
     print("--- Main Menu ----")
@@ -277,20 +389,81 @@ def show_main_menu():
     print("------------------")
     potential_options = ['N','L','Q']
 
-    choice = ''
-    while choice not in potential_options:
-        choice = input("Your choice?").upper()
+    choice = validate_usr_input("Your choice?", potential_options)
     if choice == 'N':
         return initialize_game()
     elif choice == 'L':
         return load_game()
-    
     else:
         print("buh bye")
-        return None
+        return None, None, None
     
+
+def buy_menu(player):
+
+    shopkeeper_dialogue_options = ["Nice wallet you have there!", "Hello buttercup!", "The best shop in the town for all things mining!"]
     
-def show_town_menu(player):
+    print("\n------------------------")
+    print(shopkeeper_dialogue_options[randint(0,2)]) # random dialogue option lol
+    while True: # loops until user decides to leave
+        
+
+        print(f"You have {player['GP']} GP right now!")
+        print("What would you like to buy?")
+        print("  1. (P)ickaxe")
+        print("  2. (B)ag space")
+        print("  3. (L)eave shop")
+
+        # get usr choice
+        choice = validate_usr_input("What would you like to do? ", ['P','B','L'])
+        print()
+
+        if choice == 'P':
+            if player['pickaxe_lvl'] == 2:
+                print("You already have the best pickaxe there is!")
+                print("We don't have any better for you.")
+                
+            else:
+                upgrade_cost = pickaxe_price[player['pickaxe_lvl']]
+
+                # shows user pickaxe price - reprompt them to see if they want to upgrade to pickaxe
+                upgrade_choice = validate_usr_input(f"The next pickaxe costs {upgrade_cost} GP! Do you want to upgrade? [Y/N]", ["Y", "N"]) 
+                if upgrade_choice == "Y":
+                    if upgrade_cost > player['GP']: # if not enough money for upgrade
+                        print("You don't have enough GP to upgrade you pickaxe.")
+                        print(f"The next pickaxe, the {minerals[player['pickaxe_lvl']]} pickaxe costs {upgrade_cost} GP!")
+                        print(f"You need {upgrade_cost - player["GP"]} more GP...")
+                        print("Come back with more dough...\n")
+
+                    else: # if enough money
+                        player['GP'] -= upgrade_cost
+                        print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe has been upgrade to a {minerals[player['pickaxe_lvl']+1]} pickaxe!")
+                        print("Come back again!\n")
+                    
+        elif choice == "B":
+            upgrade_cost = player['bp_size'] * 2
+            upgrade_choice = validate_usr_input(f"It costs {upgrade_cost} GP to upgrade your bag size from {player['bp_size']} to {player['bp_size'] + 2}! Do you want to upgrade? [Y/N]", ["Y", "N"])
+
+            if upgrade_choice == "Y":
+                if upgrade_cost > player['GP']:
+                    print("You don't have enough money for a bigger bag...")
+                    print(f"You need {upgrade_cost-player['GP']} more GP!")
+                    print("Come back when you have enough.\n")
+
+                else:
+                    print(f"Your backpack size has increased from {player['bp_size']} to {player['bp_size'] + 2}!")
+                    print("Come back again!\n")
+
+                    player['GP'] -= upgrade_cost
+                    player['bp_size'] += 2
+
+        else:
+            print("Nothing else? Really...")
+            print("Bye then.")
+            return player
+
+    
+def show_town_menu(game_map, fog, player):
     print(f"Day {player['day']}")
     # TODO: Show Day    
     print("----- Sundrop Town -----")
@@ -303,14 +476,21 @@ def show_town_menu(player):
     print("------------------------")
     
     options = ["B", "I", "M", "E", "V", "Q"]
-    choice = input("Your choice? ")
-    if choice not in options:
-        print("\nThats not a valid option! Please try again...")
-        choice = input("Your choice? ")
-
-
-
-            
+    choice = validate_usr_input("Your choice? ", options)
+    
+    if choice == 'B':
+        buy_menu(player)
+    elif choice == 'I':
+        return show_information(player)
+    elif choice == "M":
+        return draw_map(game_map, fog, player)
+    elif choice == "E":
+        pass
+    elif choice == "V":
+        save_game(game_map, fog, player)
+    else:
+        pass
+      
 
 #--------------------------- MAIN GAME ---------------------------
 game_state = 'main'
