@@ -37,12 +37,16 @@ def validate_usr_input(prompt: str, valid_options): # gets str 'prompt' and the 
 
 
 
-def arr_of_str_to_2darr(list: list): 
+def arr_of_str_to_2darr(list: list, reverse: bool): # reverse function for if you want 2darr to str instead of str to 2darr. 
     out = []
-    for i in range(len(list)): 
-        out.append([])
-        for chr in list[i]:
-            out[i].append(chr)
+    if reverse:
+        for line in list:
+            out.append("".join(line))
+    else:
+        for i in range(len(list)): 
+            out.append([])
+            for chr in list[i]:
+                out[i].append(chr)
 
     return out
 
@@ -80,7 +84,7 @@ def load_map(filename, map_struct):
         map_struct.append(map_raw[i].strip("\n"))
 
 
-
+    map_struct = arr_of_str_to_2darr(map_struct, False)
     MAP_WIDTH = len(map_struct[0])
     MAP_HEIGHT = len(map_struct)
 
@@ -110,7 +114,7 @@ def clear_fog(map, fog, player):
     for row in area_to_clear:
         for item in row:
             if item != '#':
-                fog[item[1]][item[0]] = 1
+                fog[item[1]][item[0]] = '1'
     
     return fog
 
@@ -175,15 +179,28 @@ def mining(game_map, player): # the enter mine function looks too long if i put 
                 mined_amt = player['bp_size'] - player['current_load']
                 print(f"...but you only can pick up {mined_amt} more pieces!")
                 player['current_load'] += mined_amt
-                player[tile] += mined_amt
+                player[mineral_mining] += mined_amt
 
             else:
                 player['current_load'] += mined_amt
-                player[tile] += mined_amt
+                player[mineral_mining] += mined_amt
 
             game_map[player['y']][player['x']] = ' '
 
     return game_map, player
+
+def selling(player): 
+
+    player['current_load'] = 0 # resets player load to 0
+    for ore in minerals: # iterates for every possible mineral
+        sell_amount_particular_ore = 0
+        for _ in range(player[ore]): # gets amount of particular mineral player is holding
+            sell_amount_particular_ore += randint(prices[ore]) # gets sale value of 1 ore, sell price is a number in a range. said ranged is acquired from the prices dictionary, by using the ore as a key to get the assigned tuple value.
+        print(f"You sell {player[ore]} {ore} ore for {sell_amount_particular_ore} GP!") 
+        player['GP'] += sell_amount_particular_ore
+
+    return player
+
 def enter_mine(game_map, fog, player): 
 
     if type(player['portal_position']) == tuple: 
@@ -280,7 +297,7 @@ def initialize_game(game_map, fog, player):
     for i in range(MAP_HEIGHT):
         fog.append([])
         for j in range(MAP_WIDTH):
-            fog[i].append(0)
+            fog[i].append('0')
 
     
     player['name'] = input("Greetings, miner! What is your name? ")
@@ -314,15 +331,15 @@ def save_game(game_map, fog, player):
 
     
     if player['save_name'] not in saves_list:
-        save_no = "save_#" + str(len(saves_list+1))
+        save_no = "save_#" + str(len(saves_list)+1)
         player['save_name'] = save_no
         particular_save_file = os.path.join(save_folder, save_no + '.json')
     else:
         particular_save_file = os.path.join(save_folder, player['save_name'] + '.json')
 
     # add fog and map to dictnary written to save file
-    player['fog'] = fog
-    player['map'] = game_map
+    player['fog'] = arr_of_str_to_2darr(fog, True)
+    player['map'] = arr_of_str_to_2darr(game_map, True)
 
     # open file and write to save file
     save_file = open(particular_save_file, 'w')
@@ -334,33 +351,42 @@ def save_game(game_map, fog, player):
     return
         
 # This function loads the game
-def load_game():   
+def load_game(game_map, fog, player):   
     save_folder = 'saves'
     if not os.path.exists(save_folder) or (os.listdir(save_folder) == []):
         print("There are no available saves for you to load!")
         if input("Do you want to start a new game? [y/n] ") == 'y':
-            return initialize_game()
+            return initialize_game(game_map, fog, player)
 
     else:
         # show available saves and ask usr for which save to load
         saves_list = os.listdir(save_folder)
         print("----- Saves List -----")
         for save_idx in range(len(saves_list)):
-            print(f" {save_idx+1}. {saves_list[save_idx][:5]}")
+            print(f" {save_idx+1}. {saves_list[save_idx][:-5]}")
 
-        save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
-        while -1 < save_to_load < len(save_folder): # since this gets a number, outside of the use case of the above valid_usr_input function
+
+        save_to_load = input("\nWhich save do you want to load, plaese enter the corresponding number? ")
+
+        try: # to ensure that input can be read as an integer
+            save_to_load = int(save_to_load) - 1
+        except:
+            print("\nPlease enter the save number.")
+            save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
+
+
+        while (-1 >= save_to_load) and (save_to_load >= len(saves_list)): # since this gets a number, outside of the use case of the above valid_usr_input function
             print("\nThats not a valid option! Please try again...")
             save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
         
         # load save info
-        save_path = os.path.join(save_folder, saves_list[save_to_load] + '.json')
+        save_path = os.path.join(save_folder, saves_list[save_to_load])
         save_file = open(save_path, 'r')
-        data_raw = json.loads(save_file)
+        data_raw = json.load(save_file)
         
         # write the map and fog from save to the respective vars
-        game_map = data_raw['map']
-        fog = data_raw['fog']
+        game_map = arr_of_str_to_2darr(data_raw['map'], False)
+        fog = arr_of_str_to_2darr(data_raw['fog'], False)
 
         # gets map width + map height
         global MAP_WIDTH
