@@ -59,7 +59,7 @@ def wrap_map(map: list): # takes a 1d/2d array as input. if 1d, each element is 
     print(sides_vertical)
     for line in map:
         if need_to_join:
-            print("| " + " ".join(line) + " |") 
+            print("| " + " ".join(line) + "  |") 
         else:
             print("| ", end='')
             for s in line:
@@ -96,16 +96,20 @@ def get_surrounding(x: int, y: int): # takes position, gets the bounds of the 3x
     
     three_by_three = [['','',''],['','',''],['','','']]
 
-    for yv in range(y-1, y+2):
-        for xv in range(x-1, x+2):
-            if ((0 <= xv) and (xv < MAP_WIDTH)) or ((0 <= yv) and (yv < MAP_HEIGHT)):
+    yrange = range(y-1, y+2)
+    xrange = range(x-1, x+2)
+    for yv in range(3):
+        for xv in range(3):
+            if ((0 > xrange[xv]) or (xrange[xv] > MAP_WIDTH)) or ((0 > yrange[yv]) or (yrange[yv] > MAP_HEIGHT)):
                 three_by_three[yv][xv] = "#"
+                
             else:
-                three_by_three[yv][xv] = (xv, yv)
+                three_by_three[yv][xv] = (xrange[xv], yrange[yv])
                 
 
     return three_by_three
 
+"""
 # This function clears the fog of war at the 3x3 square around the player
 def clear_fog(map, fog, player):
    
@@ -117,7 +121,7 @@ def clear_fog(map, fog, player):
                 fog[item[1]][item[0]] = '1'
     
     return fog
-
+"""
 
     
 # This function draws the entire map, covered by the fog
@@ -129,26 +133,29 @@ def draw_map(game_map, fog, player):
 
         for w in range(MAP_WIDTH):
 
-            if fog[h][w]:
+            if fog[h][w] == "1":
                 map_with_fog[h].append(game_map[h][w])
             else:
                 map_with_fog[h].append("?")
 
     wrap_map(map_with_fog)
 
-    return None
+    continue_var = input("Press Enter to continue. ")
 
-# This function draws the 3x3 viewport
+    return game_map, fog, player
+
+# This function draws the 3x3 viewport, clears fog as well
 def draw_view(game_map, fog, player):
 
     viewarea = get_surrounding(player['x'], player['y'])
     view = [[],[],[]]
-    for row in viewarea:
-        for item in row:
+    for row in range(len(viewarea)):
+        for item in viewarea[row]:
             if item != "#":
-                view.append(game_map[item[1]][item[0]])
+                view[row].append(game_map[item[1]][item[0]])
+                fog[item[1]][item[0]] = '1'
             else:
-                view.append('#')
+                view[row].append('#')
             
     view[1][1] = 'M'
     wrap_map(view)
@@ -212,9 +219,10 @@ def enter_mine(game_map, fog, player):
             player['x'] = 0
             player['y'] = 0
 
-    while player['turn'] < TURNS_PER_DAY:
-        print("------------------------")
-        print(f"Day {player['turn']} / {TURNS_PER_DAY}      Load: {player['current_load']} / {player['bp_size']}      Steps: {player['steps']}")
+    while player['turns'] < TURNS_PER_DAY:
+        print("----------------------------------------")
+        print(f"TURN {player['turns']}:")
+        print(f"Day {player['day']} / {TURNS_PER_DAY}      Load: {player['current_load']} / {player['bp_size']}      Steps: {player['steps']}")
         
 
         draw_view(game_map, fog, player) # draws the viewport
@@ -255,18 +263,17 @@ def enter_mine(game_map, fog, player):
             player['portal_position'] = (player['x'], player['y'])
 
             print(f"You place a portal at (x:{player['x']}, y:{player['y']})!")
-            go_back = validate_usr_input("Do you want to go back? [Y/N]", ['Y','N'])
-            if go_back == True:
+            go_back = validate_usr_input("Do you want to go back? [Y/N] ", ['Y','N'])
+            if go_back == "Y":
                 return game_map, fog, player
         else:
-            save_game(game_map, fog, player)
-
+            return show_main_menu(game_map, fog, player)
 
         # mining code
         game_map, player = mining(game_map, player)
 
-
-        player['turn'] += 1
+        player['steps'] += 1
+        player['turns'] += 1
     return game_map, fog, player # runs after turn limit is reached
 # This function shows the information for the player
 
@@ -279,7 +286,7 @@ def show_information(player):
     print(f"Pickaxe level: {player['pickaxe_lvl']} ({minerals[player['pickaxe_lvl']]} pickaxe)") # using the mineral ranking as the pickaxe material ranking for now
     print("Gold:", player['gold'])
     print("Silver:", player['silver'])
-    print("Bronze:", player['bronze'])
+    print("Bronze:", player['copper'])
     print("------------------------------")
 
     print(f"Load: {player['current_load']} / {player['bp_size']}")
@@ -288,6 +295,8 @@ def show_information(player):
     print("GP:", player['GP'])
     print("Steps taken:", player['steps'])
     print("------------------------------")
+
+    continue_var = input("Press Enter to return. ")
 
 def initialize_game(game_map, fog, player):
     # initialize map
@@ -315,6 +324,8 @@ def initialize_game(game_map, fog, player):
     player['portal_position'] = "no portal placed right now."
     player['pickaxe_lvl'] = 0
     player['current_load'] = 0
+
+    print()
 
     return game_map, fog, player
 
@@ -348,6 +359,8 @@ def save_game(game_map, fog, player):
 
     save_file.close()
     
+    continue_var = input("Press Enter to continue. ")
+
     return
         
 # This function loads the game
@@ -405,7 +418,7 @@ def load_game(game_map, fog, player):
         return game_map, fog, player
     
 
-def show_main_menu():
+def show_main_menu(game_map, fog, player):
     print()
     print("--- Main Menu ----")
     print("(N)ew game")
@@ -415,11 +428,11 @@ def show_main_menu():
     print("------------------")
     potential_options = ['N','L','Q']
 
-    choice = validate_usr_input("Your choice?", potential_options)
+    choice = validate_usr_input("Your choice? ", potential_options)
     if choice == 'N':
-        return initialize_game()
+        return initialize_game(game_map, fog, player)
     elif choice == 'L':
-        return load_game()
+        return load_game(game_map, fog, player)
     else:
         print("buh bye")
         return None, None, None
@@ -490,33 +503,40 @@ def buy_menu(player):
 
     
 def show_town_menu(game_map, fog, player):
-    print(f"Day {player['day']}")
+    print(f"Day {player['day']+1}")
     # TODO: Show Day    
-    print("----- Sundrop Town -----")
-    print("(B)uy stuff")
-    print("See Player (I)nformation")
-    print("See Mine (M)ap")
-    print("(E)nter mine")
-    print("Sa(V)e game")
-    print("(Q)uit to main menu")
-    print("------------------------")
-    
-    options = ["B", "I", "M", "E", "V", "Q"]
-    choice = validate_usr_input("Your choice? ", options)
-    
-    if choice == 'B':
-        buy_menu(player)
-    elif choice == 'I':
-        return show_information(player)
-    elif choice == "M":
-        return draw_map(game_map, fog, player)
-    elif choice == "E":
-        pass
-    elif choice == "V":
-        save_game(game_map, fog, player)
-    else:
-        pass
+    day_ongoing = True
+    while day_ongoing:
+        print("----- Sundrop Town -----")
+        print("(B)uy stuff")
+        print("See Player (I)nformation")
+        print("See Mine (M)ap")
+        print("(E)nter mine")
+        print("Sa(V)e game")
+        print("(Q)uit to main menu")
+        print("------------------------")
+        
+        options = ["B", "I", "M", "E", "V", "Q"]
+        choice = validate_usr_input("Your choice? ", options)
+            
+        if choice == 'B':
+            player = buy_menu(player)
+        elif choice == 'I':
+            show_information(player)
+        elif choice == "M":
+            game_map, fog, player = draw_map(game_map, fog, player)
+        elif choice == "E":
+            game_map, fog, player = enter_mine(game_map, fog, player)
+        elif choice == "V":
+            save_game(game_map, fog, player)
+        else:
+            day_ongoing = False
+            return show_main_menu(game_map, fog, player)
       
+        if player['turns'] == TURNS_PER_DAY:
+            day_ongoing = False
+        
+        print()
 
 #--------------------------- MAIN GAME ---------------------------
 game_state = 'main'
@@ -529,6 +549,21 @@ print("  and live happily ever after?")
 print("-----------------------------------------------------------")
 
 # TODO: The game!
+
+while True:
+    game_map, fog, player = show_main_menu(game_map, fog, player)
+    
+    while (player != None) and (player['GP'] < WIN_GP) :
+        # print(game_map, fog, player)
+        game_map, fog, player = show_town_menu(game_map, fog, player)
+
+
+    if player == None:
+        break
+    else:
+        print("you win lol")
+
+
 
 
 
