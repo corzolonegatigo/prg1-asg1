@@ -202,8 +202,9 @@ def selling(player):
     for ore in minerals: # iterates for every possible mineral
         sell_amount_particular_ore = 0
         for _ in range(player[ore]): # gets amount of particular mineral player is holding
-            sell_amount_particular_ore += randint(prices[ore]) # gets sale value of 1 ore, sell price is a number in a range. said ranged is acquired from the prices dictionary, by using the ore as a key to get the assigned tuple value.
+            sell_amount_particular_ore += randint(prices[ore][0], prices[ore][1]) # gets sale value of 1 ore, sell price is a number in a range. said ranged is acquired from the prices dictionary, by using the ore as a key to get the assigned tuple value.
         print(f"You sell {player[ore]} {ore} ore for {sell_amount_particular_ore} GP!") 
+        time.sleep(0.1) # delay in printing to make it more interesting to look at selling text. helps player actually catch info as well
         player['GP'] += sell_amount_particular_ore
 
     return player
@@ -221,8 +222,8 @@ def enter_mine(game_map, fog, player):
 
     while player['turns'] < TURNS_PER_DAY:
         print("----------------------------------------")
-        print(f"TURN {player['turns']}:")
-        print(f"Day {player['day']} / {TURNS_PER_DAY}      Load: {player['current_load']} / {player['bp_size']}      Steps: {player['steps']}")
+        print(f"DAY {player['day']}:")
+        print(f"Turn {player['turns']+1} / {TURNS_PER_DAY}      Load: {player['current_load']} / {player['bp_size']}      Steps: {player['steps']}")
         
 
         draw_view(game_map, fog, player) # draws the viewport
@@ -247,33 +248,46 @@ def enter_mine(game_map, fog, player):
         choice = validate_usr_input("Which way do you want to go? ", options)
 
         # change player pos based on input
-        if choice == 'W':
-            player['y'] -= 1
-        elif choice == 'A':
-            player['x'] -= 1
-        elif choice == 'S':
-            player['y'] += 1
-        elif choice == 'D':
-            player['x'] += 1
+        # checks if player choice is movement key. if so, change steps and turns by 1
+        if choice in ['W', 'A', 'S', 'D']: 
+
+            player['steps'] += 1
+            player['turns'] += 1
+
+            if choice == 'W':
+                player['y'] -= 1
+            elif choice == 'A':
+                player['x'] -= 1
+            elif choice == 'S':
+                player['y'] += 1
+            elif choice == 'D':
+                player['x'] += 1
+
         elif choice == 'M':
             draw_map(game_map, fog, player)
         elif choice == 'I':
             show_information(player)
         elif choice == 'P':
-            player['portal_position'] = (player['x'], player['y'])
 
-            print(f"You place a portal at (x:{player['x']}, y:{player['y']})!")
+            # prevents player from placing portal on town 
+            if (player['x'] + player['y']) == 0: 
+                print("You're at town square! You can't place a portal here...")
+            else:
+                player['portal_position'] = (player['x'], player['y'])
+                print(f"You place a portal at (x:{player['x']}, y:{player['y']})!")
+
+            # asks if they want to return to town regardless if they are on 0,0 or not
             go_back = validate_usr_input("Do you want to go back? [Y/N] ", ['Y','N'])
             if go_back == "Y":
                 return game_map, fog, player
         else:
-            return show_main_menu(game_map, fog, player)
+            game_map, fog, player = show_main_menu(game_map, fog, player)
+            return game_map, fog, player
 
         # mining code
         game_map, player = mining(game_map, player)
 
-        player['steps'] += 1
-        player['turns'] += 1
+        
     return game_map, fog, player # runs after turn limit is reached
 # This function shows the information for the player
 
@@ -324,6 +338,7 @@ def initialize_game(game_map, fog, player):
     player['portal_position'] = "no portal placed right now."
     player['pickaxe_lvl'] = 0
     player['current_load'] = 0
+    player['game_state'] = 'main'
 
     print()
 
@@ -423,16 +438,18 @@ def show_main_menu(game_map, fog, player):
     print("--- Main Menu ----")
     print("(N)ew game")
     print("(L)oad saved game")
-#    print("(H)igh scores")
+    print("(H)igh scores")
     print("(Q)uit")
     print("------------------")
-    potential_options = ['N','L','Q']
+    potential_options = ['N','L','Q', 'H']
 
     choice = validate_usr_input("Your choice? ", potential_options)
     if choice == 'N':
         return initialize_game(game_map, fog, player)
     elif choice == 'L':
         return load_game(game_map, fog, player)
+    elif choice == 'H':
+        pass
     else:
         print("buh bye")
         return None, None, None
@@ -527,19 +544,24 @@ def show_town_menu(game_map, fog, player):
             game_map, fog, player = draw_map(game_map, fog, player)
         elif choice == "E":
             game_map, fog, player = enter_mine(game_map, fog, player)
+            day_ongoing = False
+            player = selling(player)
+            player['turns'] = 0
         elif choice == "V":
             save_game(game_map, fog, player)
         else:
             day_ongoing = False
             return show_main_menu(game_map, fog, player)
       
-        if player['turns'] == TURNS_PER_DAY:
-            day_ongoing = False
+        #if player['turns'] == TURNS_PER_DAY:
+        #    day_ongoing = False
         
         print()
+    return game_map, fog, player
 
 #--------------------------- MAIN GAME ---------------------------
 game_state = 'main'
+print()
 print("---------------- Welcome to Sundrop Caves! ----------------")
 print("You spent all your money to get the deed to a mine, a small")
 print("  backpack, a simple pickaxe and a magical portal stone.")
@@ -550,18 +572,33 @@ print("-----------------------------------------------------------")
 
 # TODO: The game!
 
-while True:
-    game_map, fog, player = show_main_menu(game_map, fog, player)
+# first initialisation of player
+game_map, fog, player = show_main_menu(game_map, fog, player)
+while game_state == 'main':
+   
     
     while (player != None) and (player['GP'] < WIN_GP) :
         # print(game_map, fog, player)
+        currName = player['name']
         game_map, fog, player = show_town_menu(game_map, fog, player)
+        if (player == None) or (currName != player['name']):
+            break
 
+        player['day'] += 1
 
+    # checking if win or quit game
     if player == None:
+        print("\nThanks for playing!")
         break
-    else:
-        print("you win lol")
+    elif player['GP'] >= WIN_GP:
+        print("you win")
+        game_state = 'win'
+        player['game_state'] = 'win'
+        save_game(game_map, fog, player)
+
+
+
+
 
 
 
