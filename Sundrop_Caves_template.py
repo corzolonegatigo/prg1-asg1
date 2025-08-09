@@ -15,6 +15,8 @@ MAP_HEIGHT = 0
 TURNS_PER_DAY = 20
 WIN_GP = 500
 
+SAVE_FOLDER = 'saves'
+
 minerals = ['copper', 'silver', 'gold']
 mineral_names = {'C': 'copper', 'S': 'silver', 'G': 'gold'}
 pickaxe_price = [50, 150]
@@ -329,7 +331,7 @@ def show_information(player):
     print("----- Player Information -----")
     print("Name:", player['name'])
     print("Portal position:", player['portal_position'])
-    print(f"Pickaxe level: {player['pickaxe_lvl']} ({minerals[player['pickaxe_lvl']]} pickaxe)") # using the mineral ranking as the pickaxe material ranking for now
+    print(f"Pickaxe level: {player['pickaxe_lvl']+1} ({minerals[player['pickaxe_lvl']]} pickaxe)") # using the mineral ranking as the pickaxe material ranking for now
     print("Gold:", player['gold'])
     print("Silver:", player['silver'])
     print("Bronze:", player['copper'])
@@ -380,12 +382,11 @@ def initialize_game(game_map, fog, player):
 def save_game(game_map, fog, player):
 
     # checks if a save folder exists. if not, creates folder
-    save_folder = "saves"
-    if not os.path.exists(save_folder):
+    if not os.path.exists(SAVE_FOLDER):
         os.mkdir('saves')
 
     # get the current saves available 
-    saves_list = os.listdir(save_folder)
+    saves_list = os.listdir(SAVE_FOLDER)
     
 
     
@@ -398,13 +399,15 @@ def save_game(game_map, fog, player):
             save_no += 1
 
         # creates save file name and path
-        save_name = "save_#" + str(save_no)
+        save_no = str(save_no) # typecast to str to allow for str concatenation
+        save_name = "save_#" + save_no
         player['save_name'] = save_name
-        particular_save_file = os.path.join(save_folder, save_no + '.json')
+        particular_save_file = os.path.join(SAVE_FOLDER, save_no + '.json')
     else:
-        particular_save_file = os.path.join(save_folder, player['save_name'] + '.json')
+        particular_save_file = os.path.join(SAVE_FOLDER, player['save_name'] + '.json')
 
     # add fog and map to dictnary written to save file
+    # converts into list of str to improve save file readability
     player['fog'] = arr_of_str_to_2darr(fog, True)
     player['map'] = arr_of_str_to_2darr(game_map, True)
 
@@ -421,26 +424,115 @@ def save_game(game_map, fog, player):
         print('Saving...')
         time.sleep(0.5)
 
-    print()
+    print("\nSaving Complete.\n")
 
     continue_var = input("Press Enter to continue. ")
 
     return
         
+# gets save info for display purposes. has option for additional columns if want to show extra info. base info that is always included is gp, day, steps, name.
+# additional_columns is given default argument, makes it an optional argument.
+def get_save_info(additional_columns = []): 
+
+    if not os.path.exists(SAVE_FOLDER) or (os.listdir(SAVE_FOLDER) == []):
+        print("There are no existing games")
+        print("Returning to main menu...")
+        time.sleep(0.5) # wait a little bit
+
+    else:
+        saves_list = os.listdir(SAVE_FOLDER)
+        saves_info_to_display = []
+
+        # creates list of keys
+        key_values = ['name', 'day', 'steps', 'GP']
+        for column in additional_columns:
+            key_values.append(column)
+
+        for save in saves_list:
+
+            # load save info from json
+            save_path = os.path.join(SAVE_FOLDER, save)
+            save_file = open(save_path, 'r')
+            data_raw = json.load(save_file)
+
+            gp = data_raw['GP']
+            day = data_raw['day']
+            steps = data_raw['steps']
+            name = data_raw['name']
+
+            save_info = [name, day+1, steps, gp] # day +1 for display purposes, since count starts from 0
+            
+
+            # gets data from additional columns if present
+            for column in additional_columns:
+                save_info.append(data_raw[column])
+
+
+            saves_info_to_display.append(save_info) # order is name, ranking value of each cat
+
+    return saves_info_to_display, key_values
+
+def single_swap(v1, v2, k_idx: int): # goes down the available values used for ranking. v1, v2 = [name, day, step, gp]. swaps if needed. part of below 'show_high_score' function, look at that for full context.
+    if v1[k_idx] < v2[k_idx]:
+        return v2, v1
+    elif v1[k_idx] == v2[k_idx]:
+        return single_swap(v1, v2, k_idx + 1)
+    else:
+        return v1, v2
+    
+
+def show_high_scores(game_map, fog, player, saves_info, key_values):
+
+    print("\nHIGH SCORE LIST")
+    print("----------------------------------------------")
+
+    if len(saves_info) > 1:
+
+        # bubble sort. quite slow but also not alot of save files to sort through
+        for i in range(len(saves_info)):
+            for save_idx in range(len(saves_info)-1-i):
+                saves_info[save_idx], saves_info[save_idx+1] = single_swap(saves_info[save_idx], saves_info[save_idx+1], 1)
+
+        for rank in range(len(saves_info)):
+            print(f" {rank+1}. {saves_info[rank][0]}.")
+            for key in range(len(key_values)-1):
+                print(f" {key_values[1 + key].capitalize()}: {saves_info[rank][1 + key]}      ", end="")
+            print()
+
+    else:
+        print(f" 1. {saves_info[0][0]}")
+        for key in range(len(key_values)-1):
+            print(f" {key_values[1 + key].capitalize()}: {saves_info[0][1 + key]}      ", end="")
+        print() # adds newline to info line
+    
+    print() 
+
+    continue_var = input("Press Enter to continue. ")
+
+    return show_main_menu(game_map, fog, player)
+
 # This function loads the game
 def load_game(game_map, fog, player):   
-    save_folder = 'saves'
-    if not os.path.exists(save_folder) or (os.listdir(save_folder) == []):
+    if not os.path.exists(SAVE_FOLDER) or (os.listdir(SAVE_FOLDER) == []):
         print("There are no available saves for you to load!")
         if input("Do you want to start a new game? [y/n] ") == 'y':
             return initialize_game(game_map, fog, player)
 
     else:
         # show available saves and ask usr for which save to load
-        saves_list = os.listdir(save_folder)
+        saves_list = os.listdir(SAVE_FOLDER)
+        saves_information, key_values = get_save_info()
+
         print("----- Saves List -----")
         for save_idx in range(len(saves_list)):
+            # print save file name
             print(f" {save_idx+1}. {saves_list[save_idx][:-5]}")
+
+            # print save info
+            for display_info in saves_information:
+                for key_idx in range(len(key_values)):
+                    print(f" {key_values[key_idx].capitalize()}: {display_info[key_idx]}   ", end="")
+                print()
 
 
         save_to_load = input("\nWhich save do you want to load, plaese enter the corresponding number? ")
@@ -456,11 +548,12 @@ def load_game(game_map, fog, player):
             save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
         
         # load save info
-        save_path = os.path.join(save_folder, saves_list[save_to_load])
+        save_path = os.path.join(SAVE_FOLDER, saves_list[save_to_load])
         save_file = open(save_path, 'r')
         data_raw = json.load(save_file)
         
         # write the map and fog from save to the respective vars
+        # converts from the storage format of str in list to the 2d array
         game_map = arr_of_str_to_2darr(data_raw['map'], False)
         fog = arr_of_str_to_2darr(data_raw['fog'], False)
 
@@ -470,13 +563,15 @@ def load_game(game_map, fog, player):
 
         MAP_WIDTH = len(game_map[0])
         MAP_HEIGHT = len(game_map)
-       
-        # creates a deepcopy of the dictionary read from the .json file
-        player = deepcopy(data_raw)
+
+        # assign value of player as the complete json read from the file as a dictionary
+        player = data_raw
 
         # remove map and fog from player
         del player['map']
         del player['fog']
+
+        save_file.close()
 
         return game_map, fog, player
     
@@ -497,7 +592,8 @@ def show_main_menu(game_map, fog, player):
     elif choice == 'L':
         return load_game(game_map, fog, player)
     elif choice == 'H':
-        pass
+        saves_info, key_values = get_save_info()
+        return show_high_scores(game_map, fog, player, saves_info, key_values)
     else:
         print("buh bye")
         return None, None, None
@@ -638,7 +734,6 @@ while game_state == 'main':
             break
 
         # between day to day functions
-        print('a')
         player = selling(player)
         player['turns'] = 0
         player['x'] = 0
