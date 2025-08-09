@@ -140,10 +140,10 @@ def draw_map(game_map, fog, player):
             else:
                 map_with_fog[h].append("?")
 
-    if (player['x'] != 0) and (player['y'] != 0):
+    if not ((player['x'] == 0) and (player['y'] == 0)):
         map_with_fog[player['y']][player['x']] = 'M'
     if type(player['portal_position']) == tuple:
-        map_with_fog[player['portal_position'][1]][player['portal_position'][0]]
+        map_with_fog[player['portal_position'][1]][player['portal_position'][0]] = 'P'
     wrap_map(map_with_fog)
 
     continue_var = input("Press Enter to continue. ")
@@ -166,8 +166,10 @@ def draw_view(game_map, fog, player):
     view[1][1] = 'M'
     wrap_map(view)
 
-def mining(game_map, player): # the enter mine function looks too long if i put this code in there without a function
-    tile = game_map[player['y']][player['x']]
+def mining(game_map, player, moved_coords): # the enter mine function looks too long if i put this code in there without a function
+    tile = game_map[moved_coords[1]][moved_coords[0]]
+
+    
     if tile in mineral_names.keys():
         mineral_mining = mineral_names[tile]
 
@@ -180,25 +182,34 @@ def mining(game_map, player): # the enter mine function looks too long if i put 
             print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe is not strong enough to mine this {mineral_mining}!\n")
         
         else:
-            if mineral_mining == 'copper':
-                mined_amt = randint(1,5)
-            elif mineral_mining == 'silver':
-                mined_amt = randint(1,3)
+            if player['current_load'] > player['bp_size']:
+                print(f"Your backpack is full! You can't mine any more {mineral_mining}")
             else:
-                mined_amt = randint(1,2)
+                if mineral_mining == 'copper':
+                    mined_amt = randint(1,5)
+                elif mineral_mining == 'silver':
+                    mined_amt = randint(1,3)
+                else:
+                    mined_amt = randint(1,2)
 
-            print(f"You mined up {mined_amt} piece(s) of {mineral_mining}!")
-            if (player['current_load'] + mined_amt) > player['bp_size']:
-                mined_amt = player['bp_size'] - player['current_load']
-                print(f"...but you only can pick up {mined_amt} more pieces!")
-                player['current_load'] += mined_amt
-                player[mineral_mining] += mined_amt
+                print(f"You mined up {mined_amt} piece(s) of {mineral_mining}!")
+                if (player['current_load'] + mined_amt) > player['bp_size']:
+                    mined_amt = player['bp_size'] - player['current_load']
+                    print(f"...but you only can pick up {mined_amt} more pieces!")
+                    player['current_load'] += mined_amt
+                    player[mineral_mining] += mined_amt
 
-            else:
-                player['current_load'] += mined_amt
-                player[mineral_mining] += mined_amt
+                else:
+                    player['current_load'] += mined_amt
+                    player[mineral_mining] += mined_amt
 
             game_map[player['y']][player['x']] = ' '
+
+            player['x'], player['y'] = moved_coords[0], moved_coords[1] # change player coordinates 
+    else:
+        player['x'], player['y'] = moved_coords[0], moved_coords[1] # change player coordinates
+            
+            
 
     return game_map, player
 
@@ -212,6 +223,7 @@ def selling(player):
         print(f"You sell {player[ore]} {ore} ore for {sell_amount_particular_ore} GP!") 
         time.sleep(0.1) # delay in printing to make it more interesting to look at selling text. helps player actually catch info as well
         player['GP'] += sell_amount_particular_ore
+        player[ore] = 0
 
     return player
 
@@ -228,13 +240,15 @@ def enter_mine(game_map, fog, player):
 
     while player['turns'] < TURNS_PER_DAY:
         print("----------------------------------------")
-        print(f"DAY {player['day']}:")
+        print(f"DAY {player['day']+1}:")
         print(f"Turn {player['turns']+1} / {TURNS_PER_DAY}      Load: {player['current_load']} / {player['bp_size']}      Steps: {player['steps']}")
         
 
         draw_view(game_map, fog, player) # draws the viewport
         area = get_surrounding(player['x'], player['y']) # get the 3x3 surroundings
         options = ["W", "A", "S", "D", 'M', 'I', 'P', 'Q']
+
+        
 
         # see if movement option is valid
         if '#' in area:
@@ -252,6 +266,7 @@ def enter_mine(game_map, fog, player):
         print("Use the W, A, S, D keys to move around.")
         print("Additionally, (M)ap, (I)nformation, (P)ortal, (Q)uit to main menu are options.")
         choice = validate_usr_input("Which way do you want to go? ", options)
+        print()
 
         # change player pos based on input
         # checks if player choice is movement key. if so, change steps and turns by 1
@@ -260,14 +275,22 @@ def enter_mine(game_map, fog, player):
             player['steps'] += 1
             player['turns'] += 1
 
+            # creates a tuple, which is the players new position - this is to prevent movement if tile being moved to is unminable
+            x = player['x']
+            y = player['y']
+
+            
+
             if choice == 'W':
-                player['y'] -= 1
+                new_coords = (x, y-1)
             elif choice == 'A':
-                player['x'] -= 1
+                new_coords = (x-1, y)
             elif choice == 'S':
-                player['y'] += 1
+                new_coords = (x, y+1)
             elif choice == 'D':
-                player['x'] += 1
+                new_coords = (x+1 ,y)
+
+            game_map, player = mining(game_map, player, new_coords)
 
         elif choice == 'M':
             draw_map(game_map, fog, player)
@@ -289,7 +312,7 @@ def enter_mine(game_map, fog, player):
             return game_map, fog, player
 
         # mining code
-        game_map, player = mining(game_map, player)
+        
 
     print("You can't spend any longer in the cave, it's getting dark outside.")
     print(f"You place a portal at (x: {player['x']}, y: {player['y']}) and return home.\n")
@@ -369,13 +392,13 @@ def save_game(game_map, fog, player):
     if (player['save_name'] + '.json') not in saves_list:
 
         # get save number, starting from 1
-        save_nums = [s[6] for s in saves_list]
+        save_nums = [int(s[6]) for s in saves_list] # creates a list of integers, using the number from the save file names
         save_no = 1
         while save_no not in save_nums:
             save_no += 1
 
         # creates save file name and path
-        save_name = "save_#" + save_no
+        save_name = "save_#" + str(save_no)
         player['save_name'] = save_name
         particular_save_file = os.path.join(save_folder, save_no + '.json')
     else:
@@ -395,7 +418,7 @@ def save_game(game_map, fog, player):
     # extra printing text to make saving feel legit
     print()
     for _ in range(3):
-        print('Saving')
+        print('Saving...')
         time.sleep(0.5)
 
     print()
@@ -570,9 +593,10 @@ def show_town_menu(game_map, fog, player):
             game_map, fog, player = draw_map(game_map, fog, player)
         elif choice == "E":
             game_map, fog, player = enter_mine(game_map, fog, player)
-            day_ongoing = False
-            player = selling(player)
-            player['turns'] = 0
+
+            day_ongoing = False # end while loop
+            
+
         elif choice == "V":
             save_game(game_map, fog, player)
         else:
@@ -610,6 +634,12 @@ while game_state == 'main':
         if (player == None) or (currName != player['name']):
             break
 
+        # between day to day functions
+        print('a')
+        player = selling(player)
+        player['turns'] = 0
+        player['x'] = 0
+        player['y'] = 0
         player['day'] += 1
 
     # checking if win or quit game
