@@ -508,21 +508,25 @@ def buy_menu(player):
     shopkeeper_dialogue_options = ["Nice wallet you have there!", "Hello buttercup!", "The best shop in the town for all things mining!"]
     
     print("\n------------------------")
-    print(shopkeeper_dialogue_options[randint(0,2)]) # random dialogue option lol
+    print(shopkeeper_dialogue_options[randint(0,2)], '\n') # random dialogue option lol
     while True: # loops until user decides to leave
         
+        # calculate upgrade prices to show in buy menu
+        upgrade_cost_pickaxe = pickaxe_price[player['pickaxe_lvl']]
+        upgrade_cost_bp = player['bp_size'] * 2
 
         print(f"You have {player['GP']} GP right now!")
         print("What would you like to buy?")
-        print("  1. (P)ickaxe")
-        print("  2. (B)ag space")
-        print("  3. (L)eave shop")
+
+        print(f"  1. (P)ickaxe upgrade to level {player['pickaxe_lvl']+1} to mine {minerals[player['pickaxe_lvl']+1]} for {upgrade_cost_pickaxe} GP.")
+        print(f"  2. (B)ag space upgrade from {player['bp_size']} to {player['bp_size'] + 2} for {upgrade_cost_bp} GP.")
+        print(f"  3. (L)eave shop")
 
         # get usr choice
         choice = validate_usr_input("What would you like to do? ", ['P','B','L'])
         print()
 
-        if choice == 'P':
+        if choice == 'P': # pickaxe buy
             if player['pickaxe_lvl'] == 2:
                 print("You already have the best pickaxe there is!")
                 print("We don't have any better for you.")
@@ -531,7 +535,7 @@ def buy_menu(player):
                 upgrade_cost = pickaxe_price[player['pickaxe_lvl']]
 
                 # shows user pickaxe price - reprompt them to see if they want to upgrade to pickaxe
-                upgrade_choice = validate_usr_input(f"The next pickaxe costs {upgrade_cost} GP! Do you want to upgrade? [Y/N]", ["Y", "N"]) 
+                upgrade_choice = validate_usr_input(f"The next pickaxe costs {upgrade_cost_pickaxe} GP! Do you want to upgrade? [Y/N]", ["Y", "N"]) 
                 if upgrade_choice == "Y":
                     if upgrade_cost > player['GP']: # if not enough money for upgrade
                         print("You don't have enough GP to upgrade you pickaxe.")
@@ -544,9 +548,8 @@ def buy_menu(player):
                         print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe has been upgrade to a {minerals[player['pickaxe_lvl']+1]} pickaxe!")
                         print("Come back again!\n")
                     
-        elif choice == "B":
-            upgrade_cost = player['bp_size'] * 2
-            upgrade_choice = validate_usr_input(f"It costs {upgrade_cost} GP to upgrade your bag size from {player['bp_size']} to {player['bp_size'] + 2}! Do you want to upgrade? [Y/N]", ["Y", "N"])
+        elif choice == "B": # backpack buy
+            upgrade_choice = validate_usr_input(f"It costs {upgrade_cost_bp} GP to upgrade your bag size from {player['bp_size']} to {player['bp_size'] + 2}! Do you want to upgrade? [Y/N]", ["Y", "N"])
 
             if upgrade_choice == "Y":
                 if upgrade_cost > player['GP']:
