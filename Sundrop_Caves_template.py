@@ -24,6 +24,8 @@ prices['copper'] = (1, 3)
 prices['silver'] = (5, 8)
 prices['gold'] = (10, 18)
 
+
+
 def validate_usr_input(prompt: str, valid_options): # gets str 'prompt' and the list 'valid_options'. ensures that the usr input is valid. automatically .upper usr input
     usr_choice = ""
     while True:
@@ -138,6 +140,10 @@ def draw_map(game_map, fog, player):
             else:
                 map_with_fog[h].append("?")
 
+    if (player['x'] != 0) and (player['y'] != 0):
+        map_with_fog[player['y']][player['x']] = 'M'
+    if type(player['portal_position']) == tuple:
+        map_with_fog[player['portal_position'][1]][player['portal_position'][0]]
     wrap_map(map_with_fog)
 
     continue_var = input("Press Enter to continue. ")
@@ -274,12 +280,10 @@ def enter_mine(game_map, fog, player):
                 print("You're at town square! You can't place a portal here...")
             else:
                 player['portal_position'] = (player['x'], player['y'])
-                print(f"You place a portal at (x:{player['x']}, y:{player['y']})!")
+                print(f"You place a portal at (x: {player['x']}, y: {player['y']})!\n")
 
-            # asks if they want to return to town regardless if they are on 0,0 or not
-            go_back = validate_usr_input("Do you want to go back? [Y/N] ", ['Y','N'])
-            if go_back == "Y":
-                return game_map, fog, player
+
+            return game_map, fog, player
         else:
             game_map, fog, player = show_main_menu(game_map, fog, player)
             return game_map, fog, player
@@ -287,6 +291,11 @@ def enter_mine(game_map, fog, player):
         # mining code
         game_map, player = mining(game_map, player)
 
+    print("You can't spend any longer in the cave, it's getting dark outside.")
+    print(f"You place a portal at (x: {player['x']}, y: {player['y']}) and return home.\n")
+    player['portal_position'] = (player['x'], player['y'])
+    
+        
         
     return game_map, fog, player # runs after turn limit is reached
 # This function shows the information for the player
@@ -354,11 +363,20 @@ def save_game(game_map, fog, player):
 
     # get the current saves available 
     saves_list = os.listdir(save_folder)
+    
 
     
-    if player['save_name'] not in saves_list:
-        save_no = "save_#" + str(len(saves_list)+1)
-        player['save_name'] = save_no
+    if (player['save_name'] + '.json') not in saves_list:
+
+        # get save number, starting from 1
+        save_nums = [s[6] for s in saves_list]
+        save_no = 1
+        while save_no not in save_nums:
+            save_no += 1
+
+        # creates save file name and path
+        save_name = "save_#" + save_no
+        player['save_name'] = save_name
         particular_save_file = os.path.join(save_folder, save_no + '.json')
     else:
         particular_save_file = os.path.join(save_folder, player['save_name'] + '.json')
@@ -369,11 +387,19 @@ def save_game(game_map, fog, player):
 
     # open file and write to save file
     save_file = open(particular_save_file, 'w')
-    player_info_json = json.dumps(player)
+    player_info_json = json.dumps(player, indent=1)
     save_file.write(player_info_json)
 
     save_file.close()
     
+    # extra printing text to make saving feel legit
+    print()
+    for _ in range(3):
+        print('Saving')
+        time.sleep(0.5)
+
+    print()
+
     continue_var = input("Press Enter to continue. ")
 
     return
@@ -402,8 +428,7 @@ def load_game(game_map, fog, player):
             print("\nPlease enter the save number.")
             save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
 
-
-        while (-1 >= save_to_load) and (save_to_load >= len(saves_list)): # since this gets a number, outside of the use case of the above valid_usr_input function
+        while (-1 >= save_to_load) or (save_to_load >= len(saves_list)): # since this gets a number, outside of the use case of the above valid_usr_input function
             print("\nThats not a valid option! Please try again...")
             save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
         
@@ -520,6 +545,7 @@ def buy_menu(player):
 
     
 def show_town_menu(game_map, fog, player):
+    print()
     print(f"Day {player['day']+1}")
     # TODO: Show Day    
     day_ongoing = True
