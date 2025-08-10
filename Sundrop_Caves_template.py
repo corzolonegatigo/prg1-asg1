@@ -381,14 +381,15 @@ def save_game(game_map, fog, player):
         # get save number, starting from 1
         save_nums = [int(s[6]) for s in saves_list] # creates a list of integers, using the number from the save file names
         save_no = 1
-        while save_no not in save_nums:
+
+        while save_no in save_nums:
             save_no += 1
 
         # creates save file name and path
         save_no = str(save_no) # typecast to str to allow for str concatenation
         save_name = "save_#" + save_no
         player['save_name'] = save_name
-        particular_save_file = os.path.join(SAVE_FOLDER, save_no + '.json')
+        particular_save_file = os.path.join(SAVE_FOLDER, save_name + '.json')
     else:
         particular_save_file = os.path.join(SAVE_FOLDER, player['save_name'] + '.json')
 
