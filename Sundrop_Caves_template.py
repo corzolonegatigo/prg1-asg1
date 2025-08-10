@@ -983,14 +983,12 @@ while True:
         print("\n-------------------------------------------------------------")
         print(f"Woo-hoo, well done {player['name']}, you have {player['GP']} GP!!!")
         print("You now have enough to retire and play video games every day.")
-        print(f"And it only took you {player['days']} days and {player['steps']} steps! You win!")
+        print(f"And it only took you {player['day']} days and {player['steps']} steps! You win!")
         print("-------------------------------------------------------------")
 
         game_state = 'win'
         player['game_state'] = 'won'
         save_game(game_map, fog, player)
-
-        print("\nThanks for playing!")
 
         game_map, fog, player = show_main_menu(game_map, fog, player)
 
