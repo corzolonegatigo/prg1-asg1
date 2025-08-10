@@ -1,12 +1,12 @@
 {
- "name": "asdk",
+ "name": "asd",
  "bp_size": 10,
  "x": 0,
  "y": 0,
  "copper": 0,
  "silver": 0,
  "gold": 0,
- "GP": 0,
+ "GP": 5,
  "day": 0,
  "steps": 0,
  "turns": 0,
@@ -14,7 +14,15 @@
  "portal_position": "no portal placed right now.",
  "pickaxe_lvl": 0,
  "current_load": 0,
- "game_state": "ongoing",
+ "game_state": "won",
+ "disable_mining": false,
+ "warehouse_lvl": 0,
+ "warehouse_load": 9,
+ "warehouse_store": {
+  "copper": 5,
+  "silver": 0,
+  "gold": 0
+ },
  "fog": [
   "000000000000000000000000000000",
   "000000000000000000000000000000",

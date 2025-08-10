@@ -1,8 +1,17 @@
+# Lee Dong Ze, Zac | S10270750E (P12)
+# Addtional Features:
+# - multiple save slots
+# - warehouse
+# - git repo
+# - selling in town menu
+# - go to next day button
+
+
+# import libraries
 from random import randint
 import os
 import time
 import json
-from copy import deepcopy
 
 player = {}
 game_map = []
@@ -354,6 +363,7 @@ def initialize_game(game_map, fog, player):
     game_map = load_map("level1.txt", game_map)
     
     # TODO: initialize fog
+    fog = []
     for i in range(MAP_HEIGHT):
         fog.append([])
         for j in range(MAP_WIDTH):
@@ -600,21 +610,30 @@ def get_save_info(additional_columns = []):
     return saves_info_to_display, key_values
 
 def single_swap(v1, v2, k_idx: int): # goes down the available values used for ranking. v1, v2 = [state, name, day, step, gp]. swaps if needed. part of below 'show_high_score' function, look at that for full context.
-    if v1[k_idx] < v2[k_idx]:
+    
+    if k_idx == len(v1) - 1:
+        if v1[k_idx] < v2[k_idx]:
+            return v2, v1
+        elif v1[k_idx] == v2[k_idx]:
+            return single_swap(v1, v2, k_idx + 1)
+        else:
+            return v1, v2
+    
+    if v1[k_idx] > v2[k_idx]:
         return v2, v1
     elif v1[k_idx] == v2[k_idx]:
         return single_swap(v1, v2, k_idx + 1)
     else:
         return v1, v2
-    
 
-def show_high_scores(game_map, fog, player, saves_info, key_values):
+
+def show_high_scores(saves_info, key_values):
 
 
     saves_won_info = []
     saves_incomplete_info = []
     for save in saves_info:
-        if save[0] == 'win':
+        if save[0] == 'won':
             saves_won_info.append(save)
         else:
             saves_incomplete_info.append(save)
@@ -638,13 +657,14 @@ def show_high_scores(game_map, fog, player, saves_info, key_values):
             print(f" {rank+1}. {saves_won_info[rank][1]}.")
             for key in range(2, len(key_values)):
                 print(f" {key_values[ key].upper()}: {saves_won_info[rank][key]}      ", end="")
-            # print(f"STATUS: {saves_won_info[rank][0]}") # adds status and \n to info
+            print()
+
 
     elif len(saves_won_info) == 1:
         print(f" 1. {saves_info[0][1]}")
         for key in range(2, len(key_values)):
             print(f" {key_values[key].upper()}: {saves_info[0][key]}      ", end="")
-        # print(f"STATUS: {saves_won_info[0][0]}") 
+        print()
     
         
 
@@ -664,34 +684,43 @@ def load_game(game_map, fog, player):
     else:
         # show available saves and ask usr for which save to load
         saves_list = os.listdir(SAVE_FOLDER)
-        saves_information, key_values = get_save_info()
+        saves_information, key_values = get_save_info(["pickaxe_lvl", "bp_size"])
 
         print("----- Saves List -----")
+        c = 1 # counts the amount of saves printed in load list
+        valid_saves_to_load = [] # include saves which havent been won only
         for save_idx in range(len(saves_list)):
-            # print save file name
-            print(f" {save_idx+1}. {saves_list[save_idx][:-5]}")
+            # check if game has been won for particular save. only show saves which havent been won.
+            if saves_information[save_idx][0] != 'won':
+                
 
-            # print save info
-            
-            for key_idx in range(len(key_values)):
-                print(f" {key_values[key_idx].upper()}: {saves_information[save_idx][key_idx]}   ", end="")
-            print()
+                # print save file name
+                print(f" {c}. {saves_list[save_idx][:-5]}")
+
+                # print save info
+                for key_idx in range(len(key_values)):
+                    print(f" {key_values[key_idx].upper()}: {saves_information[save_idx][key_idx]}   ", end="")
+                print()
+
+                valid_saves_to_load.append(saves_list[save_idx])
+
+                c += 1
 
 
         save_to_load = input("\nWhich save do you want to load, plaese enter the corresponding number? ")
-
-        try: # to ensure that input can be read as an integer
-            save_to_load = int(save_to_load) - 1
-        except:
-            print("\nPlease enter the save number.")
-            save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
-
-        while (-1 >= save_to_load) or (save_to_load >= len(saves_list)): # since this gets a number, outside of the use case of the above valid_usr_input function
-            print("\nThats not a valid option! Please try again...")
-            save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1
         
+        # i could adapt the validate input function for numbers also
+        while save_to_load.isnumeric() != True:
+            input("\nWhich save do you want to load, plaese enter the corresponding NUMBER? ")
+
+        save_to_load = int(save_to_load) - 1
+
+        while (-1 >= save_to_load) or (save_to_load >= c): # since this gets a number, outside of the use case of the above valid_usr_input function
+            print("\nThats not a valid option! Please try again...")
+            save_to_load = int(input("\nWhich save do you want to load, plaese enter the corresponding number? ")) - 1 # assume user understands to put a number now
+
         # load save info
-        save_path = os.path.join(SAVE_FOLDER, saves_list[save_to_load])
+        save_path = os.path.join(SAVE_FOLDER, valid_saves_to_load[save_to_load])
         save_file = open(save_path, 'r')
         data_raw = json.load(save_file)
         
@@ -824,7 +853,8 @@ def buy_menu(player):
 
         elif choice == "W":
             if upgrade_cost_warehouse <= player['GP']:
-
+                
+                # check if player has warehouse already, if not, initialise warehouse variables in the dict
                 if player.get('warehouse_lvl') == None:
                     player['warehouse_lvl'] = 0
                     player['warehouse_load'] = warehouse_storage_load[0]
@@ -832,6 +862,7 @@ def buy_menu(player):
                     print("You have just bought your first warehouse!")
                     print("Your warehouse can be accessed from town.")        
 
+                # has warehouse, change warehouse variables values
                 else:
                     player['warehouse_lvl'] += 1
                     player['warehouse_load'] = warehouse_storage_load[player['warehouse_lvl']]
@@ -924,7 +955,7 @@ print("---------------- Welcome to Sundrop Caves! ----------------")
 print("You spent all your money to get the deed to a mine, a small")
 print("  backpack, a simple pickaxe and a magical portal stone.")
 print()
-print("How quickly can you get the 1000 GP you need to retire")
+print("How quickly can you get the 500 GP you need to retire")
 print("  and live happily ever after?")
 print("-----------------------------------------------------------")
 
