@@ -26,6 +26,9 @@ prices['copper'] = (1, 3)
 prices['silver'] = (5, 8)
 prices['gold'] = (10, 18)
 
+warehouse_upgrade_prices = [30, 50, 70] # starts from 3x3, to 5x5
+warehouse_storage_load = [9, 12, 15]
+
 
 
 def validate_usr_input(prompt: str, valid_options): # gets str 'prompt' and the list 'valid_options'. ensures that the usr input is valid. automatically .upper usr input
@@ -113,21 +116,6 @@ def get_surrounding(x: int, y: int): # takes position, gets the bounds of the 3x
 
     return three_by_three
 
-"""
-# This function clears the fog of war at the 3x3 square around the player
-def clear_fog(map, fog, player):
-   
-    area_to_clear = get_surrounding(player['x'], player['y'])
-    #there must be a faster way
-    for row in area_to_clear:
-        for item in row:
-            if item != '#':
-                fog[item[1]][item[0]] = '1'
-    
-    return fog
-"""
-
-    
 # This function draws the entire map, covered by the fog
 def draw_map(game_map, fog, player):
 
@@ -144,7 +132,7 @@ def draw_map(game_map, fog, player):
 
     if not ((player['x'] == 0) and (player['y'] == 0)):
         map_with_fog[player['y']][player['x']] = 'M'
-    if type(player['portal_position']) == tuple:
+    if type(player['portal_position']) != str:
         map_with_fog[player['portal_position'][1]][player['portal_position'][0]] = 'P'
     wrap_map(map_with_fog)
 
@@ -231,7 +219,7 @@ def selling(player):
 
 def enter_mine(game_map, fog, player): 
 
-    if type(player['portal_position']) == tuple: 
+    if type(player['portal_position']) != str: 
         go_to_portal = validate_usr_input("Do you want to go to your portal? [Y/N]", ['Y', 'N'])
         if go_to_portal: # sets player x, y to portal position
             player['x'] = player['portal_position'][0]
@@ -280,9 +268,7 @@ def enter_mine(game_map, fog, player):
             # creates a tuple, which is the players new position - this is to prevent movement if tile being moved to is unminable
             x = player['x']
             y = player['y']
-
             
-
             if choice == 'W':
                 new_coords = (x, y-1)
             elif choice == 'A':
@@ -372,7 +358,7 @@ def initialize_game(game_map, fog, player):
     player['portal_position'] = "no portal placed right now."
     player['pickaxe_lvl'] = 0
     player['current_load'] = 0
-    player['game_state'] = 'main'
+    player['game_state'] = 'ongoing'
 
     print()
 
@@ -428,9 +414,60 @@ def save_game(game_map, fog, player):
 
     continue_var = input("Press Enter to continue. ")
 
-    return
+def warehouse_menu(player):
+
+    while True:
+
+        print("----- Your Warehouse -----")
+
+        free_warehouse_space = player['warehouse_load'] - len(player['warehouse_store'])
+        warehouse_contents = player['warehouse_store'] + (" " * free_warehouse_space)
+        warehouse_contents_formatted = []
+
+        for item in range(player['warehouse_load']):
+            
+            if item % 3 == 2:
+                warehouse_contents_formatted.append(warehouse_contents[item-2:item])
+
+        wrap_map(warehouse_contents_formatted)
+
+        move_to_warehouse_options = ["C", "S", "G", "L"]
+        print()
+        print("----- Your Bag -----")
+        for ore in minerals:
+            print(f"{ore}: {player[ore]}")
+            if player[ore] == 0:
+                move_to_warehouse_options.remove(ore[0].upper())
+
+        move_over_choice = validate_usr_input("What mineral do you want to move to your warehouse? Enter the first letter of the mineral you want. Enter L to leave. ", move_to_warehouse_options)
+
+        if move_over_choice == 'L':
+            return player
         
-# gets save info for display purposes. has option for additional columns if want to show extra info. base info that is always included is gp, day, steps, name.
+        mineral_moved = mineral_names[move_over_choice]
+        move_value = int(input(f"How much {mineral_moved} do you want to store in your warehouse? "))
+        
+        while (move_value <= 0) or (move_value > player[mineral_moved]):
+            if move_value <= 0:
+                print("You can't move nothing or less than nothing!")
+            if move_value > player[mineral_moved]:
+                print(f"You dont have enough {mineral_moved}!")
+            move_value = int(input(f"How much {mineral_moved} do you want to store in your warehouse? "))
+            
+        if move_value > free_warehouse_space:
+            print(f"You only can fit {free_warehouse_space} more ores in your warehouse.")
+            print(f"{free_warehouse_space} {mineral_moved} ores were moved into your warehouse.")
+
+            player[mineral_moved] -= free_warehouse_space
+
+        else:
+            print(f"{move_value} was moved to your warehouse!")
+
+            player[mineral_moved] -= free_warehouse_space
+
+    
+        
+# gets save info for display purposes. has option for additional columns if want to show extra info. base info that is always included is gp, day, steps, name, game_state.
 # additional_columns is given default argument, makes it an optional argument.
 def get_save_info(additional_columns = []): 
 
@@ -444,7 +481,7 @@ def get_save_info(additional_columns = []):
         saves_info_to_display = []
 
         # creates list of keys
-        key_values = ['name', 'day', 'steps', 'GP']
+        key_values = ['state', 'name', 'day', 'steps', 'GP']
         for column in additional_columns:
             key_values.append(column)
 
@@ -459,8 +496,9 @@ def get_save_info(additional_columns = []):
             day = data_raw['day']
             steps = data_raw['steps']
             name = data_raw['name']
+            state = data_raw['game_state']
 
-            save_info = [name, day+1, steps, gp] # day +1 for display purposes, since count starts from 0
+            save_info = [state, name, day+1, steps, gp] # day +1 for display purposes, since count starts from 0
             
 
             # gets data from additional columns if present
@@ -468,11 +506,11 @@ def get_save_info(additional_columns = []):
                 save_info.append(data_raw[column])
 
 
-            saves_info_to_display.append(save_info) # order is name, ranking value of each cat
+            saves_info_to_display.append(save_info) # order is state, name, ranking value of each cat
 
     return saves_info_to_display, key_values
 
-def single_swap(v1, v2, k_idx: int): # goes down the available values used for ranking. v1, v2 = [name, day, step, gp]. swaps if needed. part of below 'show_high_score' function, look at that for full context.
+def single_swap(v1, v2, k_idx: int): # goes down the available values used for ranking. v1, v2 = [state, name, day, step, gp]. swaps if needed. part of below 'show_high_score' function, look at that for full context.
     if v1[k_idx] < v2[k_idx]:
         return v2, v1
     elif v1[k_idx] == v2[k_idx]:
@@ -483,30 +521,48 @@ def single_swap(v1, v2, k_idx: int): # goes down the available values used for r
 
 def show_high_scores(game_map, fog, player, saves_info, key_values):
 
-    print("\nHIGH SCORE LIST")
-    print("----------------------------------------------")
 
-    if len(saves_info) > 1:
+    saves_won_info = []
+    saves_incomplete_info = []
+    for save in saves_info:
+        if save[0] == 'win':
+            saves_won_info.append(save)
+        else:
+            saves_incomplete_info.append(save)
+
+    
+
+    print("\nHIGH SCORE LIST")
+    print("----------------------------------------------------")
+
+
+
+    if len(saves_won_info) > 1:
 
         # bubble sort. quite slow but also not alot of save files to sort through
-        for i in range(len(saves_info)):
-            for save_idx in range(len(saves_info)-1-i):
-                saves_info[save_idx], saves_info[save_idx+1] = single_swap(saves_info[save_idx], saves_info[save_idx+1], 1)
+        for i in range(len(saves_won_info)):
+            for save_idx in range(len(saves_won_info)-1-i):
+                saves_won_info[save_idx], saves_won_info[save_idx+1] = single_swap(saves_won_info[save_idx], saves_won_info[save_idx+1], 2)
 
-        for rank in range(len(saves_info)):
-            print(f" {rank+1}. {saves_info[rank][0]}.")
-            for key in range(len(key_values)-1):
-                print(f" {key_values[1 + key].capitalize()}: {saves_info[rank][1 + key]}      ", end="")
-            print()
+
+        for rank in range(len(saves_won_info)):
+            print(f" {rank+1}. {saves_won_info[rank][1]}.")
+            for key in range(2, len(key_values)):
+                print(f" {key_values[ key].upper()}: {saves_won_info[rank][key]}      ", end="")
+            # print(f"STATUS: {saves_won_info[rank][0]}") # adds status and \n to info
+
+    elif len(saves_won_info) == 1:
+        print(f" 1. {saves_info[0][1]}")
+        for key in range(2, len(key_values)):
+            print(f" {key_values[key].upper()}: {saves_info[0][key]}      ", end="")
+        # print(f"STATUS: {saves_won_info[0][0]}") 
+    
+        
 
     else:
-        print(f" 1. {saves_info[0][0]}")
-        for key in range(len(key_values)-1):
-            print(f" {key_values[1 + key].capitalize()}: {saves_info[0][1 + key]}      ", end="")
-        print() # adds newline to info line
-    
-    print() 
+        print("There are no winning games! Let's get the first one.")
 
+    print()
     continue_var = input("Press Enter to continue. ")
 
     return show_main_menu(game_map, fog, player)
@@ -529,10 +585,10 @@ def load_game(game_map, fog, player):
             print(f" {save_idx+1}. {saves_list[save_idx][:-5]}")
 
             # print save info
-            for display_info in saves_information:
-                for key_idx in range(len(key_values)):
-                    print(f" {key_values[key_idx].capitalize()}: {display_info[key_idx]}   ", end="")
-                print()
+            
+            for key_idx in range(len(key_values)):
+                print(f" {key_values[key_idx].upper()}: {saves_information[save_idx][key_idx]}   ", end="")
+            print()
 
 
         save_to_load = input("\nWhich save do you want to load, plaese enter the corresponding number? ")
@@ -606,43 +662,61 @@ def buy_menu(player):
     print("\n------------------------")
     print(shopkeeper_dialogue_options[randint(0,2)], '\n') # random dialogue option lol
     while True: # loops until user decides to leave
+        print()
+
+        # the options for user
+        buy_options = ['P','B','L','W']
         
         # calculate upgrade prices to show in buy menu
-        upgrade_cost_pickaxe = pickaxe_price[player['pickaxe_lvl']]
         upgrade_cost_bp = player['bp_size'] * 2
 
+        # show usr GP amount and prompts user to buy
         print(f"You have {player['GP']} GP right now!")
         print("What would you like to buy?")
 
-        print(f"  1. (P)ickaxe upgrade to level {player['pickaxe_lvl']+1} to mine {minerals[player['pickaxe_lvl']+1]} for {upgrade_cost_pickaxe} GP.")
-        print(f"  2. (B)ag space upgrade from {player['bp_size']} to {player['bp_size'] + 2} for {upgrade_cost_bp} GP.")
-        print(f"  3. (L)eave shop")
+        # if pickaxe lvl == 2, error will occur. since pickaxe lvl ranges from 0 to 2, and cannot upgrade pass 2, remove option to upgrade pickaxe if error raised
+        try:
+            upgrade_cost_pickaxe = pickaxe_price[player['pickaxe_lvl']]
+            print(f"  (P)ickaxe upgrade to level {player['pickaxe_lvl']+1} to mine {minerals[player['pickaxe_lvl']+1]} for {upgrade_cost_pickaxe} GP.")
+        except:
+            buy_options.remove('P')
 
+        # can always upgrade bag
+        print(f"  (B)ag space upgrade from {player['bp_size']} to {player['bp_size'] + 2} for {upgrade_cost_bp} GP.")
+        
+        # unique print message depending on whether warehouse is bought, can be upgraded, or maxed out
+        if player.get('warehouse_lvl') == None:
+            upgrade_cost_warehouse = warehouse_upgrade_prices[0]
+            print(f"  Buy a (W)arehouse for {upgrade_cost_warehouse} to store 9 ores.")
+        elif player['warehouse_lvl'] < 2:
+            upgrade_cost_warehouse = warehouse_upgrade_prices[player['warehouse_lvl']+1]
+            print(f"  Upgrade your (W)arehouse for {upgrade_cost_warehouse} to store {warehouse_storage_load[player['warehouse_lvl']+1]}")
+        else:
+            buy_options.remove('W')
+
+        print(f"  (L)eave shop")
+       
         # get usr choice
-        choice = validate_usr_input("What would you like to do? ", ['P','B','L'])
+        choice = validate_usr_input("What would you like to do? ", buy_options)
         print()
 
         if choice == 'P': # pickaxe buy
-            if player['pickaxe_lvl'] == 2:
-                print("You already have the best pickaxe there is!")
-                print("We don't have any better for you.")
-                
-            else:
-                upgrade_cost = pickaxe_price[player['pickaxe_lvl']]
 
-                # shows user pickaxe price - reprompt them to see if they want to upgrade to pickaxe
-                upgrade_choice = validate_usr_input(f"The next pickaxe costs {upgrade_cost_pickaxe} GP! Do you want to upgrade? [Y/N]", ["Y", "N"]) 
-                if upgrade_choice == "Y":
-                    if upgrade_cost > player['GP']: # if not enough money for upgrade
-                        print("You don't have enough GP to upgrade you pickaxe.")
-                        print(f"The next pickaxe, the {minerals[player['pickaxe_lvl']]} pickaxe costs {upgrade_cost} GP!")
-                        print(f"You need {upgrade_cost - player["GP"]} more GP...")
-                        print("Come back with more dough...\n")
+            upgrade_cost = pickaxe_price[player['pickaxe_lvl']]
 
-                    else: # if enough money
-                        player['GP'] -= upgrade_cost
-                        print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe has been upgrade to a {minerals[player['pickaxe_lvl']+1]} pickaxe!")
-                        print("Come back again!\n")
+            # shows user pickaxe price - reprompt them to see if they want to upgrade to pickaxe
+            upgrade_choice = validate_usr_input(f"The next pickaxe costs {upgrade_cost_pickaxe} GP! Do you want to upgrade? [Y/N]", ["Y", "N"]) 
+            if upgrade_choice == "Y":
+                if upgrade_cost > player['GP']: # if not enough money for upgrade
+                    print("You don't have enough GP to upgrade you pickaxe.")
+                    print(f"The next pickaxe, the {minerals[player['pickaxe_lvl']]} pickaxe costs {upgrade_cost} GP!")
+                    print(f"You need {upgrade_cost - player["GP"]} more GP...")
+                    print("Come back with more dough...\n")
+
+                else: # if enough money
+                    player['GP'] -= upgrade_cost
+                    print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe has been upgrade to a {minerals[player['pickaxe_lvl']+1]} pickaxe!")
+                    print("Come back again!\n")
                     
         elif choice == "B": # backpack buy
             upgrade_choice = validate_usr_input(f"It costs {upgrade_cost_bp} GP to upgrade your bag size from {player['bp_size']} to {player['bp_size'] + 2}! Do you want to upgrade? [Y/N]", ["Y", "N"])
@@ -660,6 +734,31 @@ def buy_menu(player):
                     player['GP'] -= upgrade_cost
                     player['bp_size'] += 2
 
+
+        elif choice == "W":
+            if upgrade_cost_warehouse <= player['GP']:
+
+                if player.get('warehouse_lvl') == None:
+                    player['warehouse_lvl'] = 0
+                    player['warehouse_load'] = warehouse_storage_load[0]
+                    player['warehouse_store'] = ""
+                    print("You have just bought your first warehouse!")
+                    print("Your warehouse can be accessed from town.")        
+
+                else:
+                    player['warehouse_lvl'] += 1
+                    player['warehouse_load'] = warehouse_storage_load[player['warehouse_lvl']]
+                    print(f"Your warehouse has been upgraded and can now store {player['warehouse_load']} ores!")
+
+                player['GP'] -= upgrade_cost_warehouse
+            
+            else:
+                if player.get('warehouse_lvl') == None:
+                    print("You don't have enough GP to buy a warehouse...")
+                else:
+                    print("You don't have enough GP to upgrade your warehouse")
+
+
         else:
             print("Nothing else? Really...")
             print("Bye then.")
@@ -672,6 +771,10 @@ def show_town_menu(game_map, fog, player):
     # TODO: Show Day    
     day_ongoing = True
     while day_ongoing:
+
+        options = ["B", "I", "M", "E", "V", "Q"]
+
+
         print("----- Sundrop Town -----")
         print("(B)uy stuff")
         print("See Player (I)nformation")
@@ -679,9 +782,11 @@ def show_town_menu(game_map, fog, player):
         print("(E)nter mine")
         print("Sa(V)e game")
         print("(Q)uit to main menu")
+        if player.get('warehouse_lvl') != None:
+            print("Visit (W)arehouse")
+            options.append("W")
         print("------------------------")
         
-        options = ["B", "I", "M", "E", "V", "Q"]
         choice = validate_usr_input("Your choice? ", options)
             
         if choice == 'B':
@@ -698,6 +803,8 @@ def show_town_menu(game_map, fog, player):
 
         elif choice == "V":
             save_game(game_map, fog, player)
+        elif choice == "W":
+            player = warehouse_menu(player)
         else:
             day_ongoing = False
             return show_main_menu(game_map, fog, player)
@@ -745,10 +852,12 @@ while game_state == 'main':
         print("\nThanks for playing!")
         break
     elif player['GP'] >= WIN_GP:
-        print("you win")
+        print("\nYou win!!!")
         game_state = 'win'
-        player['game_state'] = 'win'
+        player['game_state'] = 'won'
         save_game(game_map, fog, player)
+
+        print("\nThanks for playing!")
 
 
 
