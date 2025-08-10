@@ -203,13 +203,30 @@ def mining(game_map, player, moved_coords): # the enter mine function looks too 
 
     return game_map, player
 
-def selling(player): 
+# create current day sell values
+def get_sell_values_daily():
+    sell_values = {}
+    sell_values['copper'] = randint(prices['copper'][0], prices['copper'][1])
+    sell_values['silver'] = randint(prices['silver'][0], prices['silver'][1])
+    sell_values['gold'] = randint(prices['gold'][0], prices['gold'][1])
+
+    print(f"Price of copper today: {sell_values['copper']} GP")
+    print(f"Price of silver today: {sell_values['silver']} GP")
+    print(f"Price of gold today: {sell_values['gold']} GP")
+
+    return sell_values
+    
+
+def selling(player, sell_values): 
 
     player['current_load'] = 0 # resets player load to 0
     for ore in minerals: # iterates for every possible mineral
-        sell_amount_particular_ore = 0
-        for _ in range(player[ore]): # gets amount of particular mineral player is holding
-            sell_amount_particular_ore += randint(prices[ore][0], prices[ore][1]) # gets sale value of 1 ore, sell price is a number in a range. said ranged is acquired from the prices dictionary, by using the ore as a key to get the assigned tuple value.
+        sell_amount_particular_ore = player[ore] * sell_values[ore]
+        
+        # commented code is selling code before additional of warehouse
+        #for _ in range(player[ore]): # gets amount of particular mineral player is holding
+        #    sell_amount_particular_ore += randint(prices[ore][0], prices[ore][1]) # gets sale value of 1 ore, sell price is a number in a range. said ranged is acquired from the prices dictionary, by using the ore as a key to get the assigned tuple value.
+  
         print(f"You sell {player[ore]} {ore} ore for {sell_amount_particular_ore} GP!") 
         time.sleep(0.1) # delay in printing to make it more interesting to look at selling text. helps player actually catch info as well
         player['GP'] += sell_amount_particular_ore
@@ -359,6 +376,7 @@ def initialize_game(game_map, fog, player):
     player['pickaxe_lvl'] = 0
     player['current_load'] = 0
     player['game_state'] = 'ongoing'
+    player['disable_mining'] = False
 
     print()
 
@@ -419,52 +437,122 @@ def warehouse_menu(player):
 
     while True:
 
+        # display warehouse stuff
         print("----- Your Warehouse -----")
 
-        free_warehouse_space = player['warehouse_load'] - len(player['warehouse_store'])
-        warehouse_contents = player['warehouse_store'] + (" " * free_warehouse_space)
+        
+        warehouse_contents_dict = player['warehouse_store'] # initialise this variable to make the overall code more readable
+        current_warehouse_load = warehouse_contents_dict['copper'] + warehouse_contents_dict['silver'] + warehouse_contents_dict['gold']
+
+        free_warehouse_space = player['warehouse_load'] - current_warehouse_load
+        warehouse_contents = "C" * warehouse_contents_dict['copper'] + "S" * warehouse_contents_dict['silver'] + "G" * warehouse_contents_dict['gold'] + (" " * free_warehouse_space)
         warehouse_contents_formatted = []
 
-        for item in range(player['warehouse_load']):
+        for item in range(player['warehouse_load']+1):
             
-            if item % 3 == 2:
-                warehouse_contents_formatted.append(warehouse_contents[item-2:item])
+            if (item % 3 == 0) and (item != 0):
+                warehouse_contents_formatted.append(warehouse_contents[item-3:item])
 
         wrap_map(warehouse_contents_formatted)
 
-        move_to_warehouse_options = ["C", "S", "G", "L"]
-        print()
-        print("----- Your Bag -----")
-        for ore in minerals:
-            print(f"{ore}: {player[ore]}")
-            if player[ore] == 0:
-                move_to_warehouse_options.remove(ore[0].upper())
-
-        move_over_choice = validate_usr_input("What mineral do you want to move to your warehouse? Enter the first letter of the mineral you want. Enter L to leave. ", move_to_warehouse_options)
-
-        if move_over_choice == 'L':
+        # prompt user if they want to either store items in warehouse or take items out
+        warehouse_in_out_choice = validate_usr_input("Do you want to move items (I)n or (O)out of the warehouse. Enter L to Leave. ", ["I", "O", "L"])
+        if warehouse_in_out_choice == 'L':
             return player
-        
-        mineral_moved = mineral_names[move_over_choice]
-        move_value = int(input(f"How much {mineral_moved} do you want to store in your warehouse? "))
-        
-        while (move_value <= 0) or (move_value > player[mineral_moved]):
-            if move_value <= 0:
-                print("You can't move nothing or less than nothing!")
-            if move_value > player[mineral_moved]:
-                print(f"You dont have enough {mineral_moved}!")
+        elif warehouse_in_out_choice == "I":
+                
+            # get choice of which mineral to add to warehouse (for in)
+            move_to_warehouse_options = ["C", "S", "G", "L"]
+            print()
+            print("----- Your Bag -----")
+            for ore in minerals:
+                print(f"{ore.capitalize()}: {player[ore]}")
+                if player[ore] == 0:
+                    move_to_warehouse_options.remove(ore[0].upper())
+
+            move_over_choice = validate_usr_input("What mineral do you want to move to your warehouse? Enter the first letter of the mineral you want. Enter L to leave. ", move_to_warehouse_options)
+
+            # check if player chooses to leave first. if not done first and L is inputted, mineral_moved produces an error
+            if move_over_choice == 'L':
+                print()
+                continue
+            
+            mineral_moved = mineral_names[move_over_choice]
             move_value = int(input(f"How much {mineral_moved} do you want to store in your warehouse? "))
             
-        if move_value > free_warehouse_space:
-            print(f"You only can fit {free_warehouse_space} more ores in your warehouse.")
-            print(f"{free_warehouse_space} {mineral_moved} ores were moved into your warehouse.")
+            # validate move_value 
+            while (move_value <= 0) or (move_value > player[mineral_moved]):
+                if move_value <= 0:
+                    print("You can't move nothing or less than nothing!")
+                if move_value > player[mineral_moved]:
+                    print(f"You don't have enough {mineral_moved}!")
+                move_value = int(input(f"How much {mineral_moved} do you want to store in your warehouse? "))
+                
+            # checks if enough space, if not enough space, fill up warehouse
+            if move_value > free_warehouse_space:
+                print(f"You only can fit {free_warehouse_space} more ores in your warehouse.")
+                print(f"{free_warehouse_space} {mineral_moved} ores were moved into your warehouse.")
 
-            player[mineral_moved] -= free_warehouse_space
+                player[mineral_moved] -= free_warehouse_space
+                warehouse_contents_dict[mineral_moved] += free_warehouse_space
+
+            # add ores to warehouse
+            else:
+                print(f"{move_value} was moved to your warehouse!")
+
+                player[mineral_moved] -= move_value
+                warehouse_contents_dict[mineral_moved] += move_value
 
         else:
-            print(f"{move_value} was moved to your warehouse!")
+            
+            # removes the option to move items which are not in warehouse into load
+            move_out_options = ["C", "S", "G", "L"]
+            for ore in minerals:
+                if warehouse_contents_dict[ore] == 0:
+                    move_out_options.remove(ore[0].upper())
 
-            player[mineral_moved] -= free_warehouse_space
+            print("\nNote that minerals not in your warehouse cannot be selected as options.")
+            move_out_choice = validate_usr_input("What mineral do you want to move to your bag? Enter the first letter of the mineral you want. Enter L to leave. ", move_out_options)
+
+            if move_out_choice == "L":
+                print()
+                continue
+
+            mineral_moved = mineral_names[move_out_choice]
+            move_value = int(input(f"How much {mineral_moved} do you want to move out of your warehouse? "))
+
+            # validate move_value 
+            while (move_value <= 0) or (move_value > warehouse_contents_dict[mineral_moved]):
+                if move_value <= 0:
+                    print("You can't move nothing or less than nothing!")
+                if move_value > player[mineral_moved]:
+                    print(f"The warehouse doesn't have enough {mineral_moved}!")
+                move_value = int(input(f"How much {mineral_moved} do you want to move out of your warehouse? "))
+
+            # get free space in bp
+            free_bp_space = player['bp_size'] - player['current_load']
+
+            # checks if enough space in bp, if not enough space, fill up bp
+            if move_value > free_bp_space:
+                print(f"You only can fit {free_bp_space} more ores in your backpack.")
+                print(f"{free_bp_space} {mineral_moved} ores were moved into your backpack.")
+
+                player[mineral_moved] += free_bp_space
+                warehouse_contents_dict[mineral_moved] -= free_bp_space
+
+            # add ores to bp
+            else:
+                print(f"{move_value} was moved to your warehouse!")
+
+                player[mineral_moved] += move_value
+                warehouse_contents_dict[mineral_moved] -= move_value
+
+
+        # set 'warehouse_store' to warehouse contents variable, because changes are made to warehouse_contents and not 'warehouse_store'
+        # done at the end because warehouse_contents is reinitialised as 'warehouse_store' at the start of the loop
+        # thus, cant just be done when exiting menu
+        player['warehouse_store'] = warehouse_contents_dict
+                
 
     
         
@@ -566,8 +654,6 @@ def show_high_scores(game_map, fog, player, saves_info, key_values):
     print()
     continue_var = input("Press Enter to continue. ")
 
-    return show_main_menu(game_map, fog, player)
-
 # This function loads the game
 def load_game(game_map, fog, player):   
     if not os.path.exists(SAVE_FOLDER) or (os.listdir(SAVE_FOLDER) == []):
@@ -634,26 +720,28 @@ def load_game(game_map, fog, player):
     
 
 def show_main_menu(game_map, fog, player):
-    print()
-    print("--- Main Menu ----")
-    print("(N)ew game")
-    print("(L)oad saved game")
-    print("(H)igh scores")
-    print("(Q)uit")
-    print("------------------")
-    potential_options = ['N','L','Q', 'H']
 
-    choice = validate_usr_input("Your choice? ", potential_options)
-    if choice == 'N':
-        return initialize_game(game_map, fog, player)
-    elif choice == 'L':
-        return load_game(game_map, fog, player)
-    elif choice == 'H':
-        saves_info, key_values = get_save_info()
-        return show_high_scores(game_map, fog, player, saves_info, key_values)
-    else:
-        print("buh bye")
-        return None, None, None
+    while True:
+        print()
+        print("--- Main Menu ----")
+        print("(N)ew game")
+        print("(L)oad saved game")
+        print("(H)igh scores")
+        print("(Q)uit")
+        print("------------------")
+        potential_options = ['N','L','Q', 'H']
+
+        choice = validate_usr_input("Your choice? ", potential_options)
+        if choice == 'N':
+            return initialize_game(game_map, fog, player)
+        elif choice == 'L':
+            return load_game(game_map, fog, player)
+        elif choice == 'H':
+            saves_info, key_values = get_save_info()
+            show_high_scores(saves_info, key_values)
+        else:
+            print("buh bye")
+            return None, None, None
     
 
 def buy_menu(player):
@@ -703,36 +791,34 @@ def buy_menu(player):
 
         if choice == 'P': # pickaxe buy
 
-            upgrade_cost = pickaxe_price[player['pickaxe_lvl']]
-
             # shows user pickaxe price - reprompt them to see if they want to upgrade to pickaxe
             upgrade_choice = validate_usr_input(f"The next pickaxe costs {upgrade_cost_pickaxe} GP! Do you want to upgrade? [Y/N]", ["Y", "N"]) 
             if upgrade_choice == "Y":
-                if upgrade_cost > player['GP']: # if not enough money for upgrade
+                if upgrade_cost_pickaxe > player['GP']: # if not enough money for upgrade
                     print("You don't have enough GP to upgrade you pickaxe.")
-                    print(f"The next pickaxe, the {minerals[player['pickaxe_lvl']]} pickaxe costs {upgrade_cost} GP!")
-                    print(f"You need {upgrade_cost - player["GP"]} more GP...")
+                    print(f"The next pickaxe, the {minerals[player['pickaxe_lvl']]} pickaxe costs {upgrade_cost_pickaxe} GP!")
+                    print(f"You need {upgrade_cost_pickaxe - player["GP"]} more GP...")
                     print("Come back with more dough...\n")
 
                 else: # if enough money
-                    player['GP'] -= upgrade_cost
+                    player['GP'] -= upgrade_cost_pickaxe
                     print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe has been upgrade to a {minerals[player['pickaxe_lvl']+1]} pickaxe!")
-                    print("Come back again!\n")
+
                     
         elif choice == "B": # backpack buy
             upgrade_choice = validate_usr_input(f"It costs {upgrade_cost_bp} GP to upgrade your bag size from {player['bp_size']} to {player['bp_size'] + 2}! Do you want to upgrade? [Y/N]", ["Y", "N"])
 
             if upgrade_choice == "Y":
-                if upgrade_cost > player['GP']:
+                if upgrade_cost_bp > player['GP']:
                     print("You don't have enough money for a bigger bag...")
-                    print(f"You need {upgrade_cost-player['GP']} more GP!")
+                    print(f"You need {upgrade_cost_bp - player['GP']} more GP!")
                     print("Come back when you have enough.\n")
 
                 else:
                     print(f"Your backpack size has increased from {player['bp_size']} to {player['bp_size'] + 2}!")
-                    print("Come back again!\n")
 
-                    player['GP'] -= upgrade_cost
+
+                    player['GP'] -= upgrade_cost_bp
                     player['bp_size'] += 2
 
 
@@ -742,7 +828,7 @@ def buy_menu(player):
                 if player.get('warehouse_lvl') == None:
                     player['warehouse_lvl'] = 0
                     player['warehouse_load'] = warehouse_storage_load[0]
-                    player['warehouse_store'] = ""
+                    player['warehouse_store'] = {'copper': 0, "silver": 0, "gold": 0}
                     print("You have just bought your first warehouse!")
                     print("Your warehouse can be accessed from town.")        
 
@@ -763,18 +849,28 @@ def buy_menu(player):
         else:
             print("Nothing else? Really...")
             print("Bye then.")
+
+            continue_var = input("\nPress Enter to continue. ")
             return player
 
+        print("Come back again!")
+
+        
     
-def show_town_menu(game_map, fog, player):
+def show_town_menu(game_map, fog, player): # individual day loop
     print()
     print(f"Day {player['day']+1}")
     # TODO: Show Day    
     day_ongoing = True
+
+    sell_values = get_sell_values_daily()
+    print()
     while day_ongoing:
 
-        options = ["B", "I", "M", "E", "V", "Q"]
+        options = ["B", "I", "M", "E", "V", "Q", "S", "G"]
 
+        if player['disable_mining']:
+            options.remove("E")
 
         print("----- Sundrop Town -----")
         print("(B)uy stuff")
@@ -782,6 +878,8 @@ def show_town_menu(game_map, fog, player):
         print("See Mine (M)ap")
         print("(E)nter mine")
         print("Sa(V)e game")
+        print("(S)ell ores")
+        print("(G)o to next day")
         print("(Q)uit to main menu")
         if player.get('warehouse_lvl') != None:
             print("Visit (W)arehouse")
@@ -798,20 +896,23 @@ def show_town_menu(game_map, fog, player):
             game_map, fog, player = draw_map(game_map, fog, player)
         elif choice == "E":
             game_map, fog, player = enter_mine(game_map, fog, player)
-
-            day_ongoing = False # end while loop
-            
-
+            player['disable_mining'] = True # can only enter mine once per day
+            player['x'] = 0
+            player['y'] = 0
         elif choice == "V":
             save_game(game_map, fog, player)
         elif choice == "W":
             player = warehouse_menu(player)
+        elif choice == "S":
+            player = selling(player, sell_values)
+        elif choice == "G":
+            day_ongoing = False
+            player['turns'] = 0
+            player['day'] += 1
+            player['disable_mining'] = False
         else:
             day_ongoing = False
             return show_main_menu(game_map, fog, player)
-      
-        #if player['turns'] == TURNS_PER_DAY:
-        #    day_ongoing = False
         
         print()
     return game_map, fog, player
@@ -833,20 +934,14 @@ print("-----------------------------------------------------------")
 game_map, fog, player = show_main_menu(game_map, fog, player)
 while game_state == 'main':
    
-    
-    while (player != None) and (player['GP'] < WIN_GP) :
+    while (player != None) and (player['GP'] < WIN_GP) and (player['game_state'] == 'ongoing'):
         # print(game_map, fog, player)
+        
         currName = player['name']
         game_map, fog, player = show_town_menu(game_map, fog, player)
         if (player == None) or (currName != player['name']):
             break
-
-        # between day to day functions
-        player = selling(player)
-        player['turns'] = 0
-        player['x'] = 0
-        player['y'] = 0
-        player['day'] += 1
+        
 
     # checking if win or quit game
     if player == None:
