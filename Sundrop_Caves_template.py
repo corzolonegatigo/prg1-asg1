@@ -5,6 +5,7 @@
 # - git repo
 # - selling in town menu
 # - go to next day button
+# repo link: https://github.com/corzolonegatigo/prg1-asg1
 
 
 # import libraries
@@ -963,7 +964,7 @@ print("-----------------------------------------------------------")
 
 # first initialisation of player
 game_map, fog, player = show_main_menu(game_map, fog, player)
-while game_state == 'main':
+while True:
    
     while (player != None) and (player['GP'] < WIN_GP) and (player['game_state'] == 'ongoing'):
         # print(game_map, fog, player)
@@ -979,20 +980,18 @@ while game_state == 'main':
         print("\nThanks for playing!")
         break
     elif player['GP'] >= WIN_GP:
-        print("\nYou win!!!")
+        print("\n-------------------------------------------------------------")
+        print(f"Woo-hoo, well done {player['name']}, you have {player['GP']} GP!!!")
+        print("You now have enough to retire and play video games every day.")
+        print(f"And it only took you {player['days']} days and {player['steps']} steps! You win!")
+        print("-------------------------------------------------------------")
+
         game_state = 'win'
         player['game_state'] = 'won'
         save_game(game_map, fog, player)
 
         print("\nThanks for playing!")
 
+        game_map, fog, player = show_main_menu(game_map, fog, player)
 
 
-
-
-
-
-
-
-
-    
