@@ -1,4 +1,3 @@
-# Lee Dong Ze, Zac | S10270750E (P12)
 # Addtional Features:
 # - multiple save slots
 # - warehouse
