@@ -833,6 +833,7 @@ def buy_menu(player):
                 else: # if enough money
                     player['GP'] -= upgrade_cost_pickaxe
                     print(f"Your {minerals[player['pickaxe_lvl']]} pickaxe has been upgrade to a {minerals[player['pickaxe_lvl']+1]} pickaxe!")
+                    player['pickaxe_lvl'] += 1
 
                     
         elif choice == "B": # backpack buy
